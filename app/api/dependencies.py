@@ -1,22 +1,52 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from ..db.session import get_db
-from ..core.security import decode_token
+from typing import Optional
+from ..core import security, config
 from ..models.user import User
+from ..db.session import get_db
+from ..schemas import user_schema  # 이 줄을 수정했습니다
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+# is_token_blacklisted 함수를 import 하거나 정의해야 합니다
+from ..core.security import (
+    is_token_blacklisted,
+)  # 예시 import 경로, 실제 경로에 맞게 수정하세요
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: str = Depends(security.oauth2_scheme), db: Session = Depends(get_db)
 ) -> User:
-    username = decode_token(token)
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="사용자 정보가 존재하지 않습니다.",
-            headers={"WWW-Authenticate": "Bearer"},
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="유효하지 않은 인증 정보입니다.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(
+            token, config.settings.SECRET_KEY, algorithms=[config.settings.ALGORITHM]
         )
+        username: Optional[str] = payload.get("sub")
+        jti: Optional[str] = payload.get("jti")
+        if username is None or jti is None:
+            raise credentials_exception
+        if is_token_blacklisted(jti):
+            raise credentials_exception
+        token_data = user_schema.TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    user = db.query(User).filter(User.username == token_data.username).first()
+    if user is None:
+        raise credentials_exception
     return user
+
+
+def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="비활성화된 사용자입니다.")
+    return current_user
+
+
+def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
+    return current_user
