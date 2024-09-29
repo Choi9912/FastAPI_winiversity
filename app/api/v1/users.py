@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from ...schemas import user as user_schema
-from ...models.user import User
+from ...models.user import User, UserRole
+from ...core import security
 from ...db.session import get_db
 from ...api.dependencies import get_current_active_user
 
@@ -45,3 +46,23 @@ def delete_user_account(
     db.delete(current_user)
     db.commit()
     return
+
+
+@router.post("/", response_model=user_schema.User)
+def create_user(user: user_schema.UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    hashed_password = security.get_password_hash(user.password)
+    db_user = User(
+        username=user.username,
+        hashed_password=hashed_password,
+        is_active=user.is_active,
+        role=user.role,
+        nickname=user.nickname,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
