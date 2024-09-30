@@ -1,90 +1,94 @@
-from sqlalchemy import Column, Float, Integer, String, Boolean, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy import Float, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db.base import Base
-
-# User 모델 임포트를 제거합니다. 대신 문자열로 관계를 정의합니다.
+from typing import List, Optional
+from datetime import datetime
 
 
 class Course(Base):
     __tablename__ = "courses"
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    description = Column(String)
-    order = Column(Integer)
-    is_paid = Column(Boolean, default=False)
-    price = Column(Float, default=0.0)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String, index=True)
+    description: Mapped[str] = mapped_column(String)
+    order: Mapped[int] = mapped_column(Integer)
+    is_paid: Mapped[bool] = mapped_column(Boolean, default=False)
+    price: Mapped[float] = mapped_column(Float, default=0.0)
 
-    lessons = relationship("Lesson", back_populates="course")
-    enrollments = relationship("Enrollment", back_populates="course")
-    certificates = relationship("Certificate", back_populates="course")
-    payments = relationship("Payment", back_populates="course")
+    lessons: Mapped[List["Lesson"]] = relationship("Lesson", back_populates="course")
+    enrollments: Mapped[List["Enrollment"]] = relationship(
+        "Enrollment", back_populates="course"
+    )
+    certificates: Mapped[List["Certificate"]] = relationship(
+        "Certificate", back_populates="course"
+    )
+    payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="course")
 
 
 class Lesson(Base):
     __tablename__ = "lessons"
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    content = Column(String)
-    order = Column(Integer)
-    video_url = Column(String)
-    course_id = Column(Integer, ForeignKey("courses.id"))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String, index=True)
+    content: Mapped[str] = mapped_column(String)
+    order: Mapped[int] = mapped_column(Integer)
+    video_url: Mapped[str] = mapped_column(String)
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"))
 
-    course = relationship("Course", back_populates="lessons")
-    steps = relationship("LessonStep", back_populates="lesson")
-    progress = relationship("LessonProgress", back_populates="lesson")
+    course: Mapped["Course"] = relationship("Course", back_populates="lessons")
+    steps: Mapped[List["LessonStep"]] = relationship(
+        "LessonStep", back_populates="lesson"
+    )
+    progress: Mapped[List["LessonProgress"]] = relationship(
+        "LessonProgress", back_populates="lesson"
+    )
 
 
 class LessonStep(Base):
     __tablename__ = "lesson_steps"
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    content = Column(String)
-    order = Column(Integer)
-    lesson_id = Column(Integer, ForeignKey("lessons.id"))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String, index=True)
+    content: Mapped[str] = mapped_column(String)
+    order: Mapped[int] = mapped_column(Integer)
+    lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"))
 
-    lesson = relationship("Lesson", back_populates="steps")
+    lesson: Mapped["Lesson"] = relationship("Lesson", back_populates="steps")
 
 
 class Enrollment(Base):
     __tablename__ = "enrollments"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    course_id = Column(Integer, ForeignKey("courses.id"))
-    is_completed = Column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"))
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    user = relationship("User", back_populates="enrollments")
-    course = relationship("Course", back_populates="enrollments")
+    user: Mapped["User"] = relationship("User", back_populates="enrollments")
+    course: Mapped["Course"] = relationship("Course", back_populates="enrollments")
 
 
 class LessonProgress(Base):
     __tablename__ = "lesson_progress"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    lesson_id = Column(Integer, ForeignKey("lessons.id"))
-    last_watched_position = Column(Float, default=0)
-    is_completed = Column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"))
+    last_watched_position: Mapped[float] = mapped_column(Float, default=0)
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    user = relationship("User", back_populates="lesson_progress")
-    lesson = relationship("Lesson", back_populates="progress")
+    user: Mapped["User"] = relationship("User", back_populates="lesson_progress")
+    lesson: Mapped["Lesson"] = relationship("Lesson", back_populates="progress")
 
 
 class Certificate(Base):
     __tablename__ = "certificates"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    course_id = Column(Integer, ForeignKey("courses.id"))
-    issue_date = Column(DateTime)
-    certificate_number = Column(String, unique=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"))
+    issue_date: Mapped[datetime] = mapped_column(DateTime)
+    certificate_number: Mapped[str] = mapped_column(String, unique=True, index=True)
 
-    user = relationship("User", back_populates="certificates")
-    course = relationship("Course", back_populates="certificates")
-
-
-# User 모델과 Course 모델에 대한 관계 정의를 제거합니다.
-# 대신 User 모델에서 이러한 관계를 정의해야 합니다.
+    user: Mapped["User"] = relationship("User", back_populates="certificates")
+    course: Mapped["Course"] = relationship("Course", back_populates="certificates")

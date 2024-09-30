@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 from ..models.payment import PaymentMethod, PaymentStatus
@@ -8,7 +8,7 @@ class PaymentCreate(BaseModel):
     course_id: int
     method: PaymentMethod
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class PaymentResponse(BaseModel):
@@ -22,7 +22,7 @@ class PaymentResponse(BaseModel):
     completed_at: Optional[datetime]
     expiration_date: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class CouponCreate(BaseModel):
@@ -30,7 +30,7 @@ class CouponCreate(BaseModel):
     discount_percent: float
     valid_until: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class CouponResponse(BaseModel):
@@ -39,4 +39,4 @@ class CouponResponse(BaseModel):
     discount_percent: float
     valid_until: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}

@@ -1,18 +1,34 @@
+import asyncio
 from fastapi import FastAPI
 from .db.base import Base
 from .db.session import engine
 from .api.v1 import auth, users, admin, courses, payment, mission, certificates
 
-# 데이터베이스 테이블 생성
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI()
+
+
+# 비동기 함수로 데이터베이스 테이블 생성
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+# FastAPI 시작 이벤트에 테이블 생성 함수 추가
+@app.on_event("startup")
+async def startup_event():
+    await create_tables()
+
 
 # 라우터 포함
 app.include_router(auth.router, tags=["authentication"])
 app.include_router(users.router, tags=["users"])
 app.include_router(admin.router, tags=["admin"])
 app.include_router(courses.router, tags=["courses"])
-app.include_router(payment.router, tags=["payment"])
+app.include_router(payment.router, tags=["payments"])
 app.include_router(mission.router, tags=["missions"])
 app.include_router(certificates.router, tags=["certificates"])
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

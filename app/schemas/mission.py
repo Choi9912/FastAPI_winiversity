@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -7,7 +7,7 @@ class MultipleChoiceMissionBase(BaseModel):
     options: List[str]
     correct_answer: str = Field(..., pattern="^[A-E]$")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class MultipleChoiceMissionCreate(MultipleChoiceMissionBase):
@@ -24,7 +24,7 @@ class CodeSubmissionMissionBase(BaseModel):
     initial_code: Optional[str] = None
     test_cases: List[dict]
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class CodeSubmissionMissionCreate(CodeSubmissionMissionBase):
@@ -42,7 +42,7 @@ class MissionBase(BaseModel):
     type: str
     exam_type: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class MissionCreate(MissionBase):
@@ -59,7 +59,7 @@ class MissionInDB(MissionBase):
 class MultipleChoiceSubmissionBase(BaseModel):
     selected_option: str = Field(..., pattern="^[A-E]$")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class MultipleChoiceSubmissionCreate(MultipleChoiceSubmissionBase):
@@ -74,7 +74,7 @@ class MultipleChoiceSubmissionInDB(MultipleChoiceSubmissionBase):
 class MissionSubmissionBase(BaseModel):
     submitted_answer: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class MissionSubmissionCreate(MissionSubmissionBase):

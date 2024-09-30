@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from typing import List, Optional
 
 
@@ -7,7 +7,7 @@ class LessonStepBase(BaseModel):
     content: str
     order: int
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class LessonStepCreate(LessonStepBase):
@@ -25,7 +25,7 @@ class LessonBase(BaseModel):
     order: int
     video_url: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class LessonCreate(LessonBase):
@@ -38,7 +38,7 @@ class LessonUpdate(BaseModel):
     order: Optional[int] = None
     steps: Optional[List[LessonStepCreate]] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class LessonInDB(LessonBase):
@@ -54,7 +54,7 @@ class CourseBase(BaseModel):
     is_paid: bool = False
     price: float = 0.0
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class CourseCreate(CourseBase):
@@ -74,7 +74,7 @@ class CourseRoadmap(CourseBase):
 class EnrollmentBase(BaseModel):
     is_completed: bool = False
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class EnrollmentCreate(EnrollmentBase):
@@ -91,7 +91,7 @@ class LessonProgressBase(BaseModel):
     last_watched_position: float
     is_completed: bool = False
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class LessonProgressCreate(LessonProgressBase):

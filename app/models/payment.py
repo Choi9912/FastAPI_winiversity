@@ -1,7 +1,9 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy import Float, Integer, String, DateTime, ForeignKey, Enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db.base import Base
 import enum
+from typing import Optional
+from datetime import datetime
 
 
 class PaymentMethod(enum.Enum):
@@ -20,24 +22,26 @@ class PaymentStatus(enum.Enum):
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    course_id = Column(Integer, ForeignKey("courses.id"))
-    amount = Column(Float)
-    method = Column(Enum(PaymentMethod))
-    status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
-    created_at = Column(DateTime)
-    completed_at = Column(DateTime, nullable=True)
-    expiration_date = Column(DateTime)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"))
+    amount: Mapped[float] = mapped_column(Float)
+    method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod))
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus), default=PaymentStatus.PENDING
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    expiration_date: Mapped[datetime] = mapped_column(DateTime)
 
-    user = relationship("User", back_populates="payments")
-    course = relationship("Course", back_populates="payments")
+    user: Mapped["User"] = relationship("User", back_populates="payments")
+    course: Mapped["Course"] = relationship("Course", back_populates="payments")
 
 
 class Coupon(Base):
     __tablename__ = "coupons"
 
-    id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, unique=True, index=True)
-    discount_percent = Column(Float)
-    valid_until = Column(DateTime)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    code: Mapped[str] = mapped_column(String, unique=True, index=True)
+    discount_percent: Mapped[float] = mapped_column(Float)
+    valid_until: Mapped[datetime] = mapped_column(DateTime)

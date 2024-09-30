@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from ...db.session import get_db
+from ...db.session import get_async_db
 from ...models.courses import Certificate, Course, Enrollment
 from ...models.user import User
 from ...schemas import certificates as cert_schema
@@ -16,7 +16,7 @@ router = APIRouter()
 async def issue_certificate(
     course_id: int,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
     # 수료 조건 확인 (예: 모든 레슨 완료)
@@ -63,7 +63,9 @@ async def issue_certificate(
 
 
 @router.get("/verify/{certificate_number}")
-async def verify_certificate(certificate_number: str, db: Session = Depends(get_db)):
+async def verify_certificate(
+    certificate_number: str, db: Session = Depends(get_async_db)
+):
     cert = (
         db.query(Certificate)
         .filter(Certificate.certificate_number == certificate_number)

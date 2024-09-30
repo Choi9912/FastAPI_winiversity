@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from ...schemas.mission import (
     MissionCreate,
@@ -14,7 +14,7 @@ from ...models.mission import (
     MissionSubmission,
     MultipleChoiceSubmission,
 )
-from ...db.session import get_db
+from ...db.session import get_async_db
 from ...api.dependencies import (
     get_current_active_user,
     get_current_user,
@@ -23,6 +23,7 @@ from ...api.dependencies import (
 import sys
 from io import StringIO
 from ...models.user import User
+from sqlalchemy import select
 
 router = APIRouter(
     prefix="/missions",
@@ -31,14 +32,16 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[MissionInDB])
-def list_missions(db: Session = Depends(get_db)):
-    missions = db.query(Mission).all()
+async def list_missions(db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Mission))
+    missions = result.scalars().all()
     return missions
 
 
 @router.get("/{mission_id}", response_model=MissionInDB)
-def retrieve_mission(mission_id: int, db: Session = Depends(get_db)):
-    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+async def retrieve_mission(mission_id: int, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Mission).where(Mission.id == mission_id))
+    mission = result.scalar_one_or_none()
     if not mission:
         raise HTTPException(status_code=404, detail="Mission not found")
     return mission
@@ -49,13 +52,14 @@ def retrieve_mission(mission_id: int, db: Session = Depends(get_db)):
     response_model=MissionSubmissionInDB,
     status_code=status.HTTP_201_CREATED,
 )
-def submit_mission(
+async def submit_mission(
     mission_id: int,
     submission: MissionSubmissionCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: int = Depends(get_current_user),
 ):
-    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+    result = await db.execute(select(Mission).where(Mission.id == mission_id))
+    mission = result.scalar_one_or_none()
     if not mission:
         raise HTTPException(status_code=404, detail="Mission not found")
 
@@ -78,8 +82,8 @@ def submit_mission(
             is_correct=is_correct,
         )
         db.add(mission_submission)
-        db.commit()
-        db.refresh(mission_submission)
+        await db.commit()
+        await db.refresh(mission_submission)
         return mission_submission
 
     elif mission.type == "code_submission":
@@ -98,8 +102,8 @@ def submit_mission(
             is_correct=is_correct,
         )
         db.add(mission_submission)
-        db.commit()
-        db.refresh(mission_submission)
+        await db.commit()
+        await db.refresh(mission_submission)
         return mission_submission
 
     else:
@@ -107,52 +111,51 @@ def submit_mission(
 
 
 def execute_and_grade_code(code_mission: CodeSubmissionMission, submitted_code: str):
-    original_stdout = sys.stdout
-    redirected_output = StringIO()
-    sys.stdout = redirected_output
+    # 제출된 코드의 출력을 캡처하기 위한 설정
+    old_stdout = sys.stdout
+    redirected_output = sys.stdout = StringIO()
 
-    outputs = []
-    all_correct = True
+    is_correct = True
+    output = ""
 
     try:
-        exec(submitted_code, globals())
+        # 제출된 코드 실행
+        exec(submitted_code)
 
+        # 테스트 케이스 실행
         for test_case in code_mission.test_cases:
-            input_data = test_case["input"]
-            expected_output = test_case["output"]
+            # 테스트 케이스 입력 설정
+            sys.stdin = StringIO(test_case["input"])
 
-            try:
-                actual_output = solution(input_data)
+            # 테스트 케이스 실행
+            exec(submitted_code)
 
-                if actual_output == expected_output:
-                    outputs.append(
-                        f"Test case passed: Input: {input_data}, Output: {actual_output}"
-                    )
-                else:
-                    all_correct = False
-                    outputs.append(
-                        f"Test case failed: Input: {input_data}, Expected: {expected_output}, Got: {actual_output}"
-                    )
-            except Exception as e:
-                all_correct = False
-                outputs.append(
-                    f"Error in test case: Input: {input_data}, Error: {str(e)}"
-                )
+            # 출력 확인
+            result = redirected_output.getvalue().strip()
+            if result != test_case["expected_output"].strip():
+                is_correct = False
+                output += f"Test case failed. Input: {test_case['input']}, Expected: {test_case['expected_output']}, Got: {result}\n"
+
+            # 출력 버퍼 초기화
+            redirected_output.truncate(0)
+            redirected_output.seek(0)
 
     except Exception as e:
-        all_correct = False
-        outputs.append(f"Error occurred: {str(e)}")
+        is_correct = False
+        output = f"Error occurred: {str(e)}"
 
     finally:
-        sys.stdout = original_stdout
+        # 표준 출력 및 입력 복원
+        sys.stdout = old_stdout
+        sys.stdin = sys.__stdin__
 
-    return all_correct, "\n".join(outputs)
+    return is_correct, output
 
 
 @router.post("/", response_model=MissionInDB)
-def create_mission(
+async def create_mission(
     mission: MissionCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
     new_mission = Mission(
@@ -162,7 +165,7 @@ def create_mission(
         exam_type=mission.exam_type,
     )
     db.add(new_mission)
-    db.flush()  # to get the new mission's id
+    await db.flush()  # to get the new mission's id
 
     if mission.type == "multiple_choice" and mission.multiple_choice:
         multiple_choice = MultipleChoiceMission(
@@ -180,6 +183,6 @@ def create_mission(
         )
         db.add(code_submission)
 
-    db.commit()
-    db.refresh(new_mission)
+    await db.commit()
+    await db.refresh(new_mission)
     return new_mission

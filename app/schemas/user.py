@@ -1,32 +1,34 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
-
 from ..models.user import UserRole
 
 
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class UserCreate(UserBase):
+
     password: str = Field(..., min_length=8, max_length=50)
-    is_active: Optional[bool] = True
-    role: Optional[UserRole] = UserRole.STUDENT
+    is_active: bool = True
+    role: UserRole = UserRole.STUDENT
     nickname: Optional[str] = Field(None, max_length=50)
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
+    model_config = {
+        "from_attributes": True,
+        "json_schema_extra": {
             "example": {
                 "username": "vkvkd9",
                 "password": "qwer1234",
+                "is_active": True,
                 "role": "STUDENT",
+                "nickname": "Nick",
             }
         },
-    )
+    }
 
 
 class UserUpdate(BaseModel):
@@ -35,7 +37,7 @@ class UserUpdate(BaseModel):
     total_learning_time: Optional[int] = None
     course_valid_until: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class User(UserBase):
@@ -47,20 +49,20 @@ class User(UserBase):
     total_learning_time: int
     course_valid_until: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class TokenData(BaseModel):
     username: Optional[str] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 user_schema = {
