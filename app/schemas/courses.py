@@ -1,12 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 
-# LessonStep 관련 스키마
 class LessonStepBase(BaseModel):
     title: str
     content: str
     order: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LessonStepCreate(LessonStepBase):
@@ -17,15 +18,14 @@ class LessonStepInDB(LessonStepBase):
     id: int
     lesson_id: int
 
-    class Config:
-        orm_mode = True
 
-
-# Lesson 관련 스키마
 class LessonBase(BaseModel):
     title: str
     content: str
     order: int
+    video_url: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LessonCreate(LessonBase):
@@ -38,23 +38,23 @@ class LessonUpdate(BaseModel):
     order: Optional[int] = None
     steps: Optional[List[LessonStepCreate]] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class LessonInDB(LessonBase):
     id: int
     course_id: int
     steps: List[LessonStepInDB]
 
-    class Config:
-        orm_mode = True
 
-
-# Course 관련 스키마
 class CourseBase(BaseModel):
     title: str
     description: Optional[str] = None
     order: int
     is_paid: bool = False
-    price: float = 0.0  # 가격 필드 추가
+    price: float = 0.0
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CourseCreate(CourseBase):
@@ -65,21 +65,16 @@ class CourseInDB(CourseBase):
     id: int
     lessons: List[LessonInDB]
 
-    class Config:
-        orm_mode = True
-
 
 class CourseRoadmap(CourseBase):
     id: int
     is_enrolled: bool = False
 
-    class Config:
-        orm_mode = True
 
-
-# Enrollment 관련 스키마
 class EnrollmentBase(BaseModel):
     is_completed: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EnrollmentCreate(EnrollmentBase):
@@ -91,5 +86,23 @@ class Enrollment(EnrollmentBase):
     user_id: int
     course_id: int
 
-    class Config:
-        orm_mode = True
+
+class LessonProgressBase(BaseModel):
+    last_watched_position: float
+    is_completed: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LessonProgressCreate(LessonProgressBase):
+    lesson_id: int
+
+
+class LessonProgressUpdate(LessonProgressBase):
+    pass
+
+
+class LessonProgressInDB(LessonProgressBase):
+    id: int
+    user_id: int
+    lesson_id: int

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -8,15 +8,25 @@ from ..models.user import UserRole
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=50)
     is_active: Optional[bool] = True
-    role: Optional[UserRole] = UserRole.STUDENT  # 기본값을 STUDENT로 설정
+    role: Optional[UserRole] = UserRole.STUDENT
     nickname: Optional[str] = Field(None, max_length=50)
 
-    class Config:
-        schema_extra = {"example": {"username": "vkvkd9", "password": "qwer1234"}}
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "username": "vkvkd9",
+                "password": "qwer1234",
+                "role": "STUDENT",
+            }
+        },
+    )
 
 
 class UserUpdate(BaseModel):
@@ -24,6 +34,8 @@ class UserUpdate(BaseModel):
     credits: Optional[int] = None
     total_learning_time: Optional[int] = None
     course_valid_until: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class User(UserBase):
@@ -35,20 +47,22 @@ class User(UserBase):
     total_learning_time: int
     course_valid_until: Optional[datetime] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class TokenData(BaseModel):
     username: Optional[str] = None
 
+    model_config = ConfigDict(from_attributes=True)
 
-# 이 부분을 추가합니다
+
 user_schema = {
     "UserBase": UserBase,
     "UserCreate": UserCreate,

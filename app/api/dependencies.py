@@ -50,3 +50,14 @@ def require_admin(current_user: User = Depends(get_current_active_user)) -> User
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
     return current_user
+
+
+def get_current_admin_user(
+    current_user: int = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == current_user).first()
+    if not user or user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+        )
+    return user

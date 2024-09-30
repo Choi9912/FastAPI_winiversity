@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from ...schemas import courses as course_schema
-from ...models.courses import Course, Lesson, LessonStep, Enrollment
+from ...models.courses import Course, Lesson, LessonStep, Enrollment, LessonProgress
 from ...models.user import User
 from ...db.session import get_db
 from ...api.dependencies import get_current_active_user
@@ -75,7 +75,7 @@ def create_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if current_user.role != "admin":
+    if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only administrators can create courses",
@@ -122,7 +122,7 @@ def add_lesson_to_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if current_user.role != "admin":
+    if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403, detail="Only administrators can add lessons"
         )
@@ -151,7 +151,7 @@ def update_lesson(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if current_user.role != "admin":
+    if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403, detail="Only administrators can update lessons"
         )
@@ -174,7 +174,7 @@ def delete_lesson(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if current_user.role != "admin":
+    if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403, detail="Only administrators can delete lessons"
         )
@@ -186,3 +186,55 @@ def delete_lesson(
     db.delete(lesson)
     db.commit()
     return
+
+
+@router.post(
+    "/lessons/{lesson_id}/progress", response_model=course_schema.LessonProgressInDB
+)
+def update_lesson_progress(
+    lesson_id: int,
+    progress: course_schema.LessonProgressUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    lesson_progress = (
+        db.query(LessonProgress)
+        .filter(
+            LessonProgress.lesson_id == lesson_id,
+            LessonProgress.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not lesson_progress:
+        lesson_progress = LessonProgress(lesson_id=lesson_id, user_id=current_user.id)
+        db.add(lesson_progress)
+
+    lesson_progress.last_watched_position = progress.last_watched_position
+    lesson_progress.is_completed = progress.is_completed
+
+    db.commit()
+    db.refresh(lesson_progress)
+    return lesson_progress
+
+
+@router.get(
+    "/lessons/{lesson_id}/progress", response_model=course_schema.LessonProgressInDB
+)
+def get_lesson_progress(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    lesson_progress = (
+        db.query(LessonProgress)
+        .filter(
+            LessonProgress.lesson_id == lesson_id,
+            LessonProgress.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not lesson_progress:
+        raise HTTPException(status_code=404, detail="Progress not found")
+    return lesson_progress

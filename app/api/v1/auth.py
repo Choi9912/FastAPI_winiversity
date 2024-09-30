@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from datetime import timedelta, datetime
 from ...schemas import user as user_schema
-from ...models.user import User
+from ...models.user import User, UserRole
 from ...core import config
 from ...core.security import verify_password, create_access_token, get_password_hash
 from ...db.session import get_db
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
@@ -25,8 +25,8 @@ def register(user: user_schema.UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         username=user.username,
         hashed_password=hashed_pw,
-        nickname=user.nickname if user.nickname else None,  # 닉네임 설정
-        role="student",  # 역할을 'student'로 기본 설정
+        nickname=user.nickname if user.nickname else None,
+        role=user.role if user.role else UserRole.STUDENT,
     )
 
     db.add(new_user)
@@ -63,11 +63,6 @@ def login_for_access_token(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(token: str = Depends(oauth2_scheme)):
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is missing"
-        )
-
-    # 로그아웃 로직 구현 (예: 블랙리스트에 추가)
-    # 여기서는 단순히 클라이언트 측 토큰 삭제를 가정
+    # 실제 로그아웃 로직은 클라이언트 측에서 처리해야 합니다.
+    # 서버 측에서는 토큰을 블랙리스트에 추가하는 등의 추가 보안 조치를 취할 수 있습니다.
     return {"msg": "로그아웃 성공"}

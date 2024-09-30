@@ -1,12 +1,14 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
-from ..models.payment import PaymentMethod, PaymentStatus  # 수정된 부분
+from ..models.payment import PaymentMethod, PaymentStatus
 
 
 class PaymentCreate(BaseModel):
     course_id: int
     method: PaymentMethod
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentResponse(BaseModel):
@@ -20,14 +22,15 @@ class PaymentResponse(BaseModel):
     completed_at: Optional[datetime]
     expiration_date: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CouponCreate(BaseModel):
     code: str
     discount_percent: float
     valid_until: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CouponResponse(BaseModel):
@@ -36,5 +39,4 @@ class CouponResponse(BaseModel):
     discount_percent: float
     valid_until: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

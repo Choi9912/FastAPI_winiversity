@@ -25,7 +25,7 @@ def update_user_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if current_user.role != "student":  # 역할 검사 추가
+    if current_user.role != UserRole.STUDENT:  # UserRole.STUDENT 사용
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
     user_data = user_update.dict(exclude_unset=True)
     for key, value in user_data.items():
@@ -41,7 +41,7 @@ def delete_user_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if current_user.role != "student":  # 역할 검사 추가
+    if current_user.role != UserRole.STUDENT:  # UserRole.STUDENT 사용
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
     db.delete(current_user)
     db.commit()
