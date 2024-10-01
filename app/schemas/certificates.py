@@ -18,3 +18,13 @@ class CertificateInDB(CertificateBase):
     id: int
     user_id: int
     course_id: int
+
+
+class CertificateVerification(BaseModel):
+    certificate_number: str
+    issue_date: datetime
+    user_name: str
+    course_title: str
+
+    class Config:
+        from_attributes = True

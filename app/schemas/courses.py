@@ -63,12 +63,21 @@ class CourseCreate(CourseBase):
 
 class CourseInDB(CourseBase):
     id: int
-    lessons: List[LessonInDB]
+    lessons: List[LessonInDB]  # Optional[List[LessonInDB]]가 아닌지 확인
+
+    class Config:
+        orm_mode = True  # Pydantic v1.x 사용 시
+        # Pydantic v2.x 사용 시 다음과 같이 설정
+        model_config = {
+            "from_attributes": True,
+        }
 
 
 class CourseRoadmap(CourseBase):
     id: int
     is_enrolled: bool = False
+
+    model_config = {"from_attributes": True}
 
 
 class EnrollmentBase(BaseModel):
@@ -85,6 +94,8 @@ class Enrollment(EnrollmentBase):
     id: int
     user_id: int
     course_id: int
+
+    model_config = {"from_attributes": True}
 
 
 class LessonProgressBase(BaseModel):
@@ -106,3 +117,5 @@ class LessonProgressInDB(LessonProgressBase):
     id: int
     user_id: int
     lesson_id: int
+
+    model_config = {"from_attributes": True}

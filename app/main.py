@@ -1,10 +1,19 @@
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from .db.base import Base
 from .db.session import engine
 from .api.v1 import auth, users, admin, courses, payment, mission, certificates
 
 app = FastAPI()
+
+# 정적 파일 설정
+
+
+# 템플릿 설정
+templates = Jinja2Templates(directory="app/templates")
 
 
 # 비동기 함수로 데이터베이스 테이블 생성
@@ -27,6 +36,17 @@ app.include_router(courses.router, tags=["courses"])
 app.include_router(payment.router, tags=["payments"])
 app.include_router(mission.router, tags=["missions"])
 app.include_router(certificates.router, tags=["certificates"])
+
+
+@app.get("/")
+async def home(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request})
+
+
+@app.get("/payment")
+async def payment_page(request: Request):
+    return templates.TemplateResponse("payment.html", {"request": request})
+
 
 if __name__ == "__main__":
     import uvicorn

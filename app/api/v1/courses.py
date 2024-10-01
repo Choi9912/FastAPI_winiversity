@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from sqlalchemy.orm import selectinload
 from ...schemas import courses as course_schema
 from ...models.courses import Course, Lesson, LessonStep, Enrollment, LessonProgress
 from ...models.user import User
 from ...db.session import get_async_db
 from ...api.dependencies import get_current_active_user
-from sqlalchemy import select, insert, update, delete
+from sqlalchemy import select, delete
 
 router = APIRouter(
     prefix="/courses",
@@ -16,7 +17,11 @@ router = APIRouter(
 
 @router.get("/", response_model=List[course_schema.CourseInDB])
 async def get_all_courses(db: AsyncSession = Depends(get_async_db)):
-    result = await db.execute(select(Course).order_by(Course.order))
+    result = await db.execute(
+        select(Course)
+        .options(selectinload(Course.lessons).selectinload(Lesson.steps))
+        .order_by(Course.order)
+    )
     courses = result.scalars().all()
     return courses
 
@@ -26,7 +31,9 @@ async def get_course_roadmap(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    courses_result = await db.execute(select(Course).order_by(Course.order))
+    courses_result = await db.execute(
+        select(Course).options(selectinload(Course.lessons)).order_by(Course.order)
+    )
     courses = courses_result.scalars().all()
 
     enrollments_result = await db.execute(
@@ -110,16 +117,88 @@ async def create_course(
 
     await db.commit()
     await db.refresh(new_course)
-    return new_course
+
+    # 관계를 명시적으로 로드
+    await db.execute(
+        select(Course)
+        .options(selectinload(Course.lessons).selectinload(Lesson.steps))
+        .where(Course.id == new_course.id)
+    )
+    course_with_relations = (
+        await db.execute(select(Course).where(Course.id == new_course.id))
+    ).scalar_one()
+
+    return course_schema.CourseInDB(
+        id=course_with_relations.id,
+        title=course_with_relations.title,
+        description=course_with_relations.description,
+        order=course_with_relations.order,
+        is_paid=course_with_relations.is_paid,
+        price=course_with_relations.price,
+        lessons=[
+            course_schema.LessonInDB(
+                id=lesson.id,
+                title=lesson.title,
+                content=lesson.content,
+                order=lesson.order,
+                video_url=lesson.video_url,
+                course_id=lesson.course_id,
+                steps=[
+                    course_schema.LessonStepInDB(
+                        id=step.id,
+                        title=step.title,
+                        content=step.content,
+                        order=step.order,
+                        lesson_id=step.lesson_id,
+                    )
+                    for step in lesson.steps
+                ],
+            )
+            for lesson in course_with_relations.lessons
+        ],
+    )
 
 
 @router.get("/{course_id}", response_model=course_schema.CourseInDB)
 async def get_course(course_id: int, db: AsyncSession = Depends(get_async_db)):
-    result = await db.execute(select(Course).where(Course.id == course_id))
+    result = await db.execute(
+        select(Course)
+        .options(selectinload(Course.lessons).selectinload(Lesson.steps))
+        .where(Course.id == course_id)
+    )
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    return course
+
+    return course_schema.CourseInDB(
+        id=course.id,
+        title=course.title,
+        description=course.description,
+        order=course.order,
+        is_paid=course.is_paid,
+        price=course.price,
+        lessons=[
+            course_schema.LessonInDB(
+                id=lesson.id,
+                title=lesson.title,
+                content=lesson.content,
+                order=lesson.order,
+                video_url=lesson.video_url,
+                course_id=lesson.course_id,
+                steps=[
+                    course_schema.LessonStepInDB(
+                        id=step.id,
+                        title=step.title,
+                        content=step.content,
+                        order=step.order,
+                        lesson_id=step.lesson_id,
+                    )
+                    for step in lesson.steps
+                ],
+            )
+            for lesson in course.lessons
+        ],
+    )
 
 
 @router.post("/{course_id}/lessons/", response_model=course_schema.LessonInDB)

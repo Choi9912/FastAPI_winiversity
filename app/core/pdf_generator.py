@@ -5,34 +5,26 @@ from reportlab.pdfbase.ttfonts import TTFont
 import os
 
 
-def generate_certificate_pdf(certificate, user, db):
-    # 폰트 등록 (한글 지원을 위해)
-    pdfmetrics.registerFont(TTFont("NanumGothic", "NanumGothic.ttf"))
+# 프로젝트 루트 디렉토리 경로를 가져옵니다.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    # PDF 생성
+
+async def generate_certificate_pdf(certificate, user, db):
+    # 폰트 파일의 절대 경로를 지정합니다.
+    font_path = os.path.join(BASE_DIR, "app", "assets", "fonts", "NanumGothic.ttf")
+
+    # 폰트를 등록합니다.
+    pdfmetrics.registerFont(TTFont("NanumGothic", font_path))
+
+    # PDF 생성 로직
     filename = f"certificate_{certificate.certificate_number}.pdf"
     c = canvas.Canvas(filename, pagesize=letter)
-    width, height = letter
+    c.setFont("NanumGothic", 12)
 
-    # 제목
-    c.setFont("NanumGothic", 30)
-    c.drawCentredString(width / 2, height - 100, "수료증")
-
-    # 내용
-    c.setFont("NanumGothic", 16)
-    c.drawCentredString(width / 2, height - 150, f"이름: {user.username}")
-    c.drawCentredString(width / 2, height - 180, f"과목: {certificate.course.title}")
-    c.drawCentredString(
-        width / 2,
-        height - 210,
-        f"수료일: {certificate.issue_date.strftime('%Y-%m-%d')}",
-    )
-    c.drawCentredString(
-        width / 2, height - 240, f"인증번호: {certificate.certificate_number}"
-    )
+    # 여기에 PDF 내용 생성 로직을 추가하세요.
+    c.drawString(100, 750, f"Certificate Number: {certificate.certificate_number}")
+    c.drawString(100, 710, f"Issue Date: {certificate.issue_date}")
 
     c.save()
 
-    # 파일 경로 저장 (예: 데이터베이스에 저장)
-    certificate.pdf_path = os.path.abspath(filename)
-    db.commit()
+    return filename
