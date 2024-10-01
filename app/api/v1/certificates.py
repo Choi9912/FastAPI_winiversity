@@ -56,8 +56,18 @@ async def issue_certificate(
     await db.commit()
     await db.refresh(new_cert)
 
+    # 코스 정보 조회
+    course_query = select(Course).filter(Course.id == course_id)
+    course_result = await db.execute(course_query)
+    course = course_result.scalar_one_or_none()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
     # 백그라운드에서 PDF 생성
-    background_tasks.add_task(generate_certificate_pdf, new_cert, current_user, db)
+    background_tasks.add_task(
+        generate_certificate_pdf, new_cert, current_user, course, db
+    )
 
     return new_cert
 
