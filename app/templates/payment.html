@@ -4,61 +4,140 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>결제 페이지</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script type="text/javascript" src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"></script>
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
 </head>
 <body>
     <h1>결제 페이지</h1>
-    <button id="payment-button">결제하기</button>
+    <select id="course-select">
+        <option value="">코스를 선택하세요</option>
+        <option value="1">코스 1</option>
+        <option value="2">코스 2</option>
+        <option value="3">코스 3</option>
+    </select>
+    <input type="text" id="coupon-code" placeholder="쿠폰 코드 입력">
+    <button id="apply-coupon">쿠폰 적용</button>
+    <button id="payment-button" disabled>결제하기</button>
 
     <script>
-        var IMP = window.IMP;
-        IMP.init("imp06350358"); // 자신의 "가맹점 식별코드"를 사용
-
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('payment-button').addEventListener('click', async function() {
-                // 백엔드에서 결제 정보 가져오기
-                const response = await fetch('/payments/prepare', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        course_id: 1,  // 정수여야 함
-                        method: 'CREDIT_CARD'  // PaymentMethod enum의 유효한 값이어야 함
-                    }),
-                });
-                const paymentData = await response.json();
+            const courseSelect = document.getElementById('course-select');
+            const paymentButton = document.getElementById('payment-button');
+            const couponInput = document.getElementById('coupon-code');
+            const applyCouponButton = document.getElementById('apply-coupon');
 
-                IMP.request_pay({
-                    pg: "inicis_v2",
-                    pay_method: "card",
-                    merchant_uid: paymentData.merchant_uid,
-                    name: paymentData.name,
-                    amount: paymentData.amount,
-                    buyer_email: paymentData.buyer_email,
-                    buyer_name: paymentData.buyer_name,
-                }, async function (rsp) {
-                    if (rsp.success) {
+            courseSelect.addEventListener('change', function() {
+                paymentButton.disabled = !this.value;
+            });
+
+            paymentButton.addEventListener('click', async function() {
+                const courseId = courseSelect.value;
+                if (!courseId) {
+                    alert('코스를 선택해주세요.');
+                    return;
+                }
+
+                try {
+                    // 백엔드에서 결제 준비 정보 가져오기
+                    const prepareResponse = await fetch('/payments/prepare', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            course_id: parseInt(courseId),
+                            method: 'CARD'
+                        }),
+                    });
+
+                    if (!prepareResponse.ok) {
+                        throw new Error('결제 준비 실패');
+                    }
+
+                    const paymentData = await prepareResponse.json();
+
+                    // PortOne 결제 요청
+                    const portOneResponse = await PortOne.requestPayment({
+                        storeId: paymentData.storeId,
+                        channelGroupId: paymentData.channelGroupId,
+                        paymentId: paymentData.paymentId,
+                        orderName: paymentData.orderName,
+                        totalAmount: paymentData.totalAmount,
+                        currency: paymentData.currency,
+                        payMethod: paymentData.payMethod,
+                        customer: paymentData.customer,
+                    });
+
+                    if (portOneResponse.code === "PAYMENT_SUCCESS") {
                         // 결제 성공 시 백엔드에 확인 요청
-                        const confirmResponse = await fetch('payments/confirm', {
+                        const confirmResponse = await fetch('/payments/confirm', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                imp_uid: rsp.imp_uid,
-                                merchant_uid: rsp.merchant_uid
+                                imp_uid: portOneResponse.imp_uid,
+                                merchant_uid: portOneResponse.merchant_uid,
+                                course_id: parseInt(courseId),
+                                amount: paymentData.totalAmount,
+                                method: paymentData.payMethod
                             }),
                         });
+
+                        if (!confirmResponse.ok) {
+                            throw new Error('결제 확인 실패');
+                        }
+
                         const confirmResult = await confirmResponse.json();
+                        alert('결제가 성공적으로 완료되었습니다.');
                         console.log("결제 성공", confirmResult);
                     } else {
-                        console.log("결제 실패", rsp);
+                        throw new Error('결제 실패');
                     }
-                });
+                } catch (error) {
+                    alert('결제에 실패했습니다: ' + error.message);
+                    console.log("결제 실패", error);
+                }
+            });
+
+            applyCouponButton.addEventListener('click', async function() {
+                const courseId = courseSelect.value;
+                const couponCode = couponInput.value;
+
+                if (!courseId) {
+                    alert('코스를 선택해주세요.');
+                    return;
+                }
+
+                if (!couponCode) {
+                    alert('쿠폰 코드를 입력해주세요.');
+                    return;
+                }
+
+                try {
+                    const prepareResponse = await fetch('/payments/prepare', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            course_id: parseInt(courseId),
+                            method: 'CARD',
+                            coupon_code: couponCode
+                        }),
+                    });
+
+                    if (!prepareResponse.ok) {
+                        throw new Error('쿠폰 적용 실패');
+                    }
+
+                    const paymentData = await prepareResponse.json();
+                    alert(`쿠폰이 적용되었습니다. 할인 금액: ${paymentData.discountAmount}원`);
+                } catch (error) {
+                    alert('쿠폰 적용에 실패했습니다: ' + error.message);
+                }
             });
         });
     </script>
 </body>
 </html>
+

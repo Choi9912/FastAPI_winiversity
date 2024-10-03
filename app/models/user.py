@@ -27,6 +27,8 @@ class User(Base):
     course_valid_until: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True
     )
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    phone_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     enrollments: Mapped[List["Enrollment"]] = relationship(
         "Enrollment", back_populates="user"

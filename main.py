@@ -3,9 +3,9 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from .db.base import Base
-from .db.session import engine
-from .api.v1 import auth, users, admin, courses, payment, mission, certificates
+from app.db.base import Base
+from app.db.session import engine
+from app.api.v1 import auth, users, admin, courses, payment, mission, certificates
 
 app = FastAPI()
 

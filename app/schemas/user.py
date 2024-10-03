@@ -1,21 +1,19 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 from typing import Optional
 from ..models.user import UserRole
 
 
 class UserBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+    username: str
+    phone_number: str  # 새로 추가된 필드
 
     model_config = {"from_attributes": True}
 
 
 class UserCreate(UserBase):
-
-    password: str = Field(..., min_length=8, max_length=50)
-    is_active: bool = True
-    role: UserRole = UserRole.STUDENT
-    nickname: Optional[str] = Field(None, max_length=50)
+    password: str
 
     model_config = {
         "from_attributes": True,
@@ -36,7 +34,7 @@ class UserUpdate(BaseModel):
     credits: Optional[int] = None
     total_learning_time: Optional[int] = None
     course_valid_until: Optional[datetime] = None
-
+    phone_number: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
