@@ -26,9 +26,12 @@ async def register(
 
     new_user = User(
         username=user.username,
+        email=user.email,
+        phone_number=user.phone_number,
         hashed_password=hashed_pw,
-        nickname=user.nickname if user.nickname else None,
-        role=user.role if user.role else UserRole.STUDENT,
+        nickname=user.nickname,
+        role=user.role,
+        is_active=user.is_active,
     )
 
     db.add(new_user)

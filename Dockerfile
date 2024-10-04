@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 애플리케이션 코드 복사
 COPY . .
+COPY alembic.ini .
 
 # 포트 8000 노출
 EXPOSE 8000

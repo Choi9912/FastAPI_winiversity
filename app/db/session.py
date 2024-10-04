@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from ..core.config import settings
 
 # 비동기 엔진 생성
-engine = create_async_engine("sqlite+aiosqlite:///database.db")
+engine = create_async_engine(settings.DATABASE_URL, echo=True, future=True)
 
 # 비동기 세션 팩토리 생성
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

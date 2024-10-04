@@ -12,16 +12,21 @@ from sqlalchemy import select
 import requests
 import time
 import uuid
+import os
+from dotenv import load_dotenv
 
 router = APIRouter(
     prefix="/payments",
     tags=["payments"],
 )
 
+# .env 파일 로드
+load_dotenv()
+
 # PortOne 설정
-PORTONE_STORE_ID = "store-e05df7ba-b0d4-4c2d-a353-fcec22ab9fd2"
-PORTONE_CHANNEL_GROUP_ID = "channel-group-test-3e707d66-6bc1-4843-8e7b-fd09423fb219"
-PORTONE_API_URL = "https://api.portone.io/v2"
+PORTONE_STORE_ID = os.getenv("PORTONE_STORE_ID")
+PORTONE_CHANNEL_GROUP_ID = os.getenv("PORTONE_CHANNEL_GROUP_ID")
+PORTONE_API_URL = os.getenv("PORTONE_API_URL")
 
 
 async def apply_coupon(db: AsyncSession, course_id: int, coupon_code: str) -> float:

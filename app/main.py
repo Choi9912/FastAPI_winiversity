@@ -6,6 +6,13 @@ from pathlib import Path
 from app.db.base import Base
 from app.db.session import engine
 from app.api.v1 import auth, users, admin, courses, payment, mission, certificates
+from dotenv import load_dotenv
+import logging
+from app.core.config import settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+load_dotenv()
 
 app = FastAPI()
 
@@ -25,6 +32,7 @@ async def create_tables():
 # FastAPI 시작 이벤트에 테이블 생성 함수 추가
 @app.on_event("startup")
 async def startup_event():
+    logger.info(f"Using database: {settings.DATABASE_URL}")
     await create_tables()
 
 
