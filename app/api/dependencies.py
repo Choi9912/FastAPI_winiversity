@@ -16,6 +16,7 @@ async def get_current_user(
     token: str = Depends(security.oauth2_scheme),
     db: AsyncSession = Depends(get_async_db),
 ):
+    print(f"Received token: {token}")  # 디버깅 로그
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="유효하지 않은 인증 정보입니다.",

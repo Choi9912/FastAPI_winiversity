@@ -10,13 +10,14 @@ from ...db.session import get_async_db
 from sqlalchemy import select
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
 @router.post("/register", response_model=user_schema.User)
 async def register(
     user: user_schema.UserCreate, db: AsyncSession = Depends(get_async_db)
 ):
+    print(f"Received user data: {user.dict()}")  # 로깅 추가
     result = await db.execute(select(User).where(User.username == user.username))
     db_user = result.scalar_one_or_none()
     if db_user:

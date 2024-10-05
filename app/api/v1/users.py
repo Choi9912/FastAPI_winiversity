@@ -138,7 +138,7 @@ async def get_course_valid_until(current_user: User = Depends(get_current_active
 
 
 @router.put("/me", response_model=user_schema.User)
-async def update_user_profile(
+async def update_user_me(
     user_update: user_schema.UserUpdate,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),

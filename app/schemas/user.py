@@ -13,25 +13,27 @@ class UserBase(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class UserCreate(UserBase):
-    password: str
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    email: EmailStr
+    password: str = Field(..., min_length=1)
+    nickname: str = Field(..., min_length=1, max_length=50)
+    phone_number: str = Field(..., min_length=1, max_length=15)
     is_active: bool = True
     role: UserRole
-    nickname: str
 
     model_config = {
-        "from_attributes": True,
         "json_schema_extra": {
             "example": {
                 "username": "vkvkd9",
                 "email": "user@example.com",
-                "phone_number": "1234567890",
                 "password": "qwer1234",
+                "nickname": "Nick",
+                "phone_number": "1234567890",
                 "is_active": True,
                 "role": "STUDENT",
-                "nickname": "Nick",
             }
-        },
+        }
     }
 
 

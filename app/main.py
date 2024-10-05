@@ -20,7 +20,7 @@ app = FastAPI()
 
 
 # 템플릿 설정
-templates = Jinja2Templates(directory="app/templates")
+# templates = Jinja2Templates(directory="app/templates")
 
 
 # 비동기 함수로 데이터베이스 테이블 생성
@@ -37,16 +37,16 @@ async def startup_event():
 
 
 # 라우터 포함
-app.include_router(auth.router, tags=["authentication"])
-app.include_router(users.router, tags=["users"])
-app.include_router(admin.router, tags=["admin"])
-app.include_router(courses.router, tags=["courses"])
-app.include_router(payment.router, tags=["payments"])
-app.include_router(mission.router, tags=["missions"])
-app.include_router(certificates.router, tags=["certificates"])
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
+app.include_router(courses.router, prefix="/api/v1")
+app.include_router(payment.router, prefix="/api/v1")
+app.include_router(mission.router, prefix="/api/v1")
+app.include_router(certificates.router, prefix="/api/v1")
 
 
-@app.get("/")
+"""@app.get("/")
 async def home(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
@@ -54,6 +54,18 @@ async def home(request: Request):
 @app.get("/payment")
 async def payment_page(request: Request):
     return templates.TemplateResponse("payment.html", {"request": request})
+"""
+
+# CORS 설정 추가
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 if __name__ == "__main__":

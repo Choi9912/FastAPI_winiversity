@@ -7,6 +7,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
+from app.core.config import settings
 
 # Ensure the app directory is in the path
 sys.path.append(".")
@@ -74,8 +75,20 @@ async def run_async_migrations():
     await connectable.dispose()
 
 
-def run_migrations_online():
+def get_url():
+    return settings.DATABASE_URL
+
+
+def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    connectable = AsyncEngine(
+        engine_from_config(
+            config.get_section(config.config_ini_section),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+            url=get_url(),
+        )
+    )
 
     asyncio.run(run_async_migrations())
 
