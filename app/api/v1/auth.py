@@ -9,9 +9,8 @@ from ...core.security import verify_password, create_access_token, get_password_
 from ...db.session import get_async_db
 from sqlalchemy import select
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
-
 
 @router.post("/register", response_model=user_schema.User)
 async def register(

@@ -14,12 +14,8 @@ class Mission(Base):
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     exam_type: Mapped[str] = mapped_column(String(10), nullable=False)
 
-    multiple_choice: Mapped[Optional["MultipleChoiceMission"]] = relationship(
-        "MultipleChoiceMission", uselist=False, back_populates="mission"
-    )
-    code_submission: Mapped[Optional["CodeSubmissionMission"]] = relationship(
-        "CodeSubmissionMission", uselist=False, back_populates="mission"
-    )
+    multiple_choice = relationship("MultipleChoiceMission", back_populates="mission", uselist=False)
+    code_submission = relationship("CodeSubmissionMission", back_populates="mission", uselist=False)
     submissions: Mapped[List["MissionSubmission"]] = relationship(
         "MissionSubmission", back_populates="mission"
     )
@@ -35,9 +31,13 @@ class MultipleChoiceMission(Base):
     options: Mapped[str] = mapped_column(JSON, nullable=False)
     correct_answer: Mapped[str] = mapped_column(String(1), nullable=False)
 
-    mission: Mapped["Mission"] = relationship(
-        "Mission", back_populates="multiple_choice"
-    )
+    mission = relationship("Mission", back_populates="multiple_choice")
+
+    def dict(self):
+        return {
+            "options": self.options,
+            "correct_answer": self.correct_answer
+        }
 
 
 class CodeSubmissionMission(Base):
@@ -51,9 +51,14 @@ class CodeSubmissionMission(Base):
     initial_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     test_cases: Mapped[str] = mapped_column(JSON, nullable=False)
 
-    mission: Mapped["Mission"] = relationship(
-        "Mission", back_populates="code_submission"
-    )
+    mission = relationship("Mission", back_populates="code_submission")
+
+    def dict(self):
+        return {
+            "problem_description": self.problem_description,
+            "initial_code": self.initial_code,
+            "test_cases": self.test_cases
+        }
 
 
 class MissionSubmission(Base):

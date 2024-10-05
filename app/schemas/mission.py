@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 
 
@@ -50,10 +50,17 @@ class MissionCreate(MissionBase):
     code_submission: Optional[CodeSubmissionMissionCreate] = None
 
 
-class MissionInDB(MissionBase):
+class MissionInDB(BaseModel):
     id: int
-    multiple_choice: Optional[MultipleChoiceMissionInDB] = None
-    code_submission: Optional[CodeSubmissionMissionInDB] = None
+    course: str
+    question: str
+    type: str
+    exam_type: str
+    multiple_choice: Optional[Dict[str, Any]] = None
+    code_submission: Optional[Dict[str, Any]] = None
+
+    class Config:
+        orm_mode = True
 
 
 class MultipleChoiceSubmissionBase(BaseModel):

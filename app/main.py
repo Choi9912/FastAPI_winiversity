@@ -9,6 +9,7 @@ from app.api.v1 import auth, users, admin, courses, payment, mission, certificat
 from dotenv import load_dotenv
 import logging
 from app.core.config import settings
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ async def startup_event():
 
 
 # 라우터 포함
+
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
@@ -46,22 +48,12 @@ app.include_router(mission.router, prefix="/api/v1")
 app.include_router(certificates.router, prefix="/api/v1")
 
 
-"""@app.get("/")
-async def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
 
 
-@app.get("/payment")
-async def payment_page(request: Request):
-    return templates.TemplateResponse("payment.html", {"request": request})
-"""
-
-# CORS 설정 추가
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],
+    allow_origins=["*"],  # 실제 배포 시에는 구체적인 origin을 지정하세요
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

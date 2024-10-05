@@ -51,7 +51,7 @@ async def get_course_roadmap(
     return roadmap
 
 
-@router.post("/enroll/{course_id}", response_model=course_schema.Enrollment)
+@router.post("/{course_id}/enroll", response_model=course_schema.Enrollment)
 async def enroll_course(
     course_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -201,7 +201,7 @@ async def get_course(course_id: int, db: AsyncSession = Depends(get_async_db)):
     )
 
 
-@router.post("/{course_id}/lessons/", response_model=course_schema.LessonInDB)
+@router.post("/{course_id}/lessons", response_model=course_schema.LessonInDB)
 async def add_lesson_to_course(
     course_id: int,
     lesson: course_schema.LessonCreate,
@@ -231,8 +231,9 @@ async def add_lesson_to_course(
     return new_lesson
 
 
-@router.put("/lessons/{lesson_id}", response_model=course_schema.LessonInDB)
+@router.put("/{course_id}/lessons/{lesson_id}", response_model=course_schema.LessonInDB)
 async def update_lesson(
+    course_id: int,
     lesson_id: int,
     lesson_update: course_schema.LessonUpdate,
     db: AsyncSession = Depends(get_async_db),
@@ -256,8 +257,9 @@ async def update_lesson(
     return existing_lesson
 
 
-@router.delete("/lessons/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{course_id}/lessons/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lesson(
+    course_id: int,
     lesson_id: int,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
@@ -278,9 +280,10 @@ async def delete_lesson(
 
 
 @router.post(
-    "/lessons/{lesson_id}/progress", response_model=course_schema.LessonProgressInDB
+    "/{course_id}/lessons/{lesson_id}/progress", response_model=course_schema.LessonProgressInDB
 )
 async def update_lesson_progress(
+    course_id: int,
     lesson_id: int,
     progress: course_schema.LessonProgressUpdate,
     db: AsyncSession = Depends(get_async_db),
@@ -307,9 +310,10 @@ async def update_lesson_progress(
 
 
 @router.get(
-    "/lessons/{lesson_id}/progress", response_model=course_schema.LessonProgressInDB
+    "/{course_id}/lessons/{lesson_id}/progress", response_model=course_schema.LessonProgressInDB
 )
 async def get_lesson_progress(
+    course_id: int,
     lesson_id: int,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
@@ -325,3 +329,21 @@ async def get_lesson_progress(
     if not lesson_progress:
         raise HTTPException(status_code=404, detail="Progress not found")
     return lesson_progress
+
+
+@router.get("/{course_id}/lessons/{lesson_id}", response_model=course_schema.LessonInDB)
+async def get_lesson(
+    course_id: int,
+    lesson_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    lesson_result = await db.execute(
+        select(Lesson)
+        .options(selectinload(Lesson.steps))
+        .where(Lesson.id == lesson_id, Lesson.course_id == course_id)
+    )
+    lesson = lesson_result.scalar_one_or_none()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson
