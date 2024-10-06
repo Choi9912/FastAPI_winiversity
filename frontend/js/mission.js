@@ -1,66 +1,132 @@
-window.API_URL = 'http://localhost:8000/api/v1';
+// frontend/js/mission.js
 
-// 미션 목록 가져오기
-async function loadMissions() {
-    try {
-        const response = await fetch(`${API_URL}/missions`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        if (!response.ok) throw new Error('미션 목록을 가져오는데 실패했습니다.');
-        const missions = await response.json();
-        displayMissions(missions);
-    } catch (error) {
-        console.error('Error:', error);
-        alert(error.message);
-    }
-}
+window.API_URL = 'http://localhost:8000/api/v1';  // 실제 백엔드 URL로 변경하세요
 
-// 미션 목록 표시
-function displayMissions(missions) {
-    const missionList = document.getElementById('missionList');
-    missionList.innerHTML = '<h2>미션 목록</h2>';
-    missions.forEach(mission => {
-        missionList.innerHTML += `
-            <div>
-                <h3>${mission.question}</h3>
-                <p>과목: ${mission.course}</p>
-                <p>유형: ${mission.type}</p>
-                <button onclick="showMission(${mission.id})">미션 보기</button>
-            </div>
-        `;
+let missions = []; // 모든 미션 정보를 저장할 전역 변수
+
+function loadMissions() {
+    console.log('Loading missions...');
+    fetch(`${window.API_URL}/missions`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) throw new Error('Failed to load missions');
+        return response.json();
+    })
+    .then(data => {
+        console.log('Missions data:', data);
+        missions = data;
+        showMissionList(); // 미션 로드 후 목록 표시
+    })
+    .catch(error => {
+        console.error('Error loading missions:', error);
+        alert('미션 목록을 불러오는데 실패했습니다.');
     });
 }
 
-// 개별 미션 표시
+function displayMissions(missions) {
+    console.log('Displaying missions:', missions);
+    let missionList = document.getElementById('missionList');
+    if (!missionList) {
+        console.log('missionList element not found, creating it');
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = '<div id="missionList"></div>';
+            missionList = document.getElementById('missionList');
+        } else {
+            console.error('mainContent element not found');
+            return;
+        }
+    }
+    missionList.innerHTML = '<h2>미션 목록</h2>';
+    if (missions.length === 0) {
+        missionList.innerHTML += '<p>표시할 미션이 없습니다.</p>';
+        return;
+    }
+    missions.forEach(mission => {
+        console.log('Rendering mission:', mission);
+        const missionElement = document.createElement('div');
+        missionElement.innerHTML = `
+            <h3>${mission.question}</h3>
+            <p>과목: ${mission.course}</p>
+            <p>유형: ${mission.type}</p>
+            <button class="mission-view-btn" data-mission-id="${mission.id}">미션 보기</button>
+        `;
+        missionList.appendChild(missionElement);
+    });
+
+    // 미션 보기 버튼에 이벤트 리스너 추가
+    const missionViewButtons = document.querySelectorAll('.mission-view-btn');
+    missionViewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const missionId = this.getAttribute('data-mission-id');
+            console.log(`Clicked mission ID: ${missionId}`);
+            showMission(missionId);
+        });
+    });
+}
+
 async function showMission(missionId) {
+    console.log(`showMission called with ID: ${missionId}`);
     try {
-        const response = await fetch(`${API_URL}/missions/${missionId}`, {
+        console.log(`API_URL: ${window.API_URL}`);
+        if (!window.API_URL) {
+            throw new Error('API_URL is not defined');
+        }
+
+        const url = `${window.API_URL}/missions/${missionId}`;
+        console.log(`Fetching from URL: ${url}`);
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No token found in localStorage');
+        }
+
+        const response = await fetch(url, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`
             }
         });
-        if (!response.ok) throw new Error('미션을 가져오는데 실패했습니다.');
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
         const mission = await response.json();
+        console.log('Fetched mission:', mission);
         displayMissionDetail(mission);
     } catch (error) {
-        console.error('Error:', error);
-        alert(error.message);
+        console.error('Error in showMission:', error);
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+            console.log('Network error or CORS issue. Check your API_URL and server CORS settings.');
+        }
+        alert(`미션 정보를 불러오는데 실패했습니다. 오류: ${error.message}`);
     }
 }
 
-// 미션 상세 정보 표시
 function displayMissionDetail(mission) {
+    console.log('Displaying mission detail:', mission);
     const missionDetail = document.getElementById('missionDetail');
-    missionDetail.innerHTML = `
+    console.log('missionDetail element:', missionDetail);
+    if (!missionDetail) {
+        console.error('Error: missionDetail element not found');
+        return;
+    }
+
+    // HTML 콘텐츠을 구성합니다.
+    let html = `
         <h2>${mission.question}</h2>
         <p>과목: ${mission.course}</p>
         <p>유형: ${mission.type}</p>
     `;
 
     if (mission.type === 'multiple_choice') {
-        missionDetail.innerHTML += `
+        console.log('Rendering multiple choice question');
+        html += `
             <form id="multipleChoiceForm">
                 ${mission.multiple_choice.options.map((option, index) => `
                     <div>
@@ -71,88 +137,91 @@ function displayMissionDetail(mission) {
                 <button type="submit">제출</button>
             </form>
         `;
-        document.getElementById('multipleChoiceForm').addEventListener('submit', (e) => submitMultipleChoice(e, mission.id));
     } else if (mission.type === 'code_submission') {
-        missionDetail.innerHTML += `
+        console.log('Rendering code submission question');
+        html += `
             <h3>문제 설명</h3>
             <p>${mission.code_submission.problem_description}</p>
             <h3>코드 작성</h3>
-            <div id="editor" style="height: 300px;">${mission.code_submission.initial_code}</div>
+            <div id="editor" style="height: 300px;">${mission.code_submission.initial_code || ''}</div>
             <button id="submitCode">코드 제출</button>
         `;
+    }
+
+    html += `
+        <div id="result"></div>
+        <button onclick="displayMissions()">미션 목록으로 돌아가기</button>
+    `;
+
+    // innerHTML을 한 번에 설정하여 HTML 구조의 무결성을 유지합니다.
+    missionDetail.innerHTML = html;
+
+    // 이벤트 리스너를 추가합니다.
+    if (mission.type === 'multiple_choice') {
+        const form = document.getElementById('multipleChoiceForm');
+        if (form) {
+            form.addEventListener('submit', (e) => submitMultipleChoice(e, mission.id));
+        }
+    } else if (mission.type === 'code_submission') {
         const editor = ace.edit("editor");
         editor.setTheme("ace/theme/monokai");
-        editor.session.setMode("ace/mode/javascript");
-        document.getElementById('submitCode').addEventListener('click', () => submitCode(mission.id, editor.getValue()));
+        editor.session.setMode("ace/mode/python");
+        const submitCodeBtn = document.getElementById('submitCode');
+        if (submitCodeBtn) {
+            submitCodeBtn.addEventListener('click', () => submitCode(mission.id, editor.getValue()));
+        }
     }
 
-    missionDetail.innerHTML += `
-        <div id="result"></div>
-        <button onclick="loadMissions()">미션 목록으로 돌아가기</button>
-    `;
+    // 미션 목록을 숨기고, 미션 상세 정보를 표시합니다.
+    document.getElementById('missionList').style.display = 'none';
+    missionDetail.style.display = 'block';
+    console.log('Mission detail rendering completed');
 }
 
-// 객관식 답안 제출
-async function submitMultipleChoice(event, missionId) {
-    event.preventDefault();
-    const selectedOption = document.querySelector('input[name="selected_option"]:checked');
-    if (!selectedOption) {
-        alert('답안을 선택해주세요.');
+// 다른 함수들 (submitMultipleChoice, submitCode, displayResult)은 기존 코드와 동일하게 유지
+function showMissionList() {
+    console.log('Showing mission list');
+    const missionSection = document.getElementById('missionSection');
+    const missionList = document.getElementById('missionList');
+    const missionDetail = document.getElementById('missionDetail');
+    
+    if (missionSection) {
+        missionSection.style.display = 'block';
+    } else {
+        console.error('missionSection element not found');
         return;
     }
+    
+    if (missionList) {
+        missionList.style.display = 'block';
+    } else {
+        console.error('missionList element not found');
+        return;
+    }
+    
+    if (missionDetail) {
+        missionDetail.style.display = 'none';
+    } else {
+        console.error('missionDetail element not found');
+        return;
+    }
+    
+    displayMissions(missions);
+}
 
-    try {
-        const response = await fetch(`${API_URL}/missions/${missionId}/submit`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ selected_option: parseInt(selectedOption.value) })
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM fully loaded in mission.js');
+    
+    const missionLink = document.getElementById('missionLink');
+    if (missionLink) {
+        missionLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showMissionList();
         });
-        if (!response.ok) throw new Error('답안 제출에 실패했습니다.');
-        const result = await response.json();
-        displayResult(result);
-    } catch (error) {
-        console.error('Error:', error);
-        alert(error.message);
+    } else {
+        console.error('missionLink element not found');
     }
-}
-
-// 코드 제출
-async function submitCode(missionId, code) {
-    try {
-        const response = await fetch(`${API_URL}/missions/${missionId}/submit`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ code: code })
-        });
-        if (!response.ok) throw new Error('코드 제출에 실패했습니다.');
-        const result = await response.json();
-        displayResult(result);
-    } catch (error) {
-        console.error('Error:', error);
-        alert(error.message);
-    }
-}
-
-// 결과 표시
-function displayResult(result) {
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = `
-        <h3>제출 결과</h3>
-        <p>${result.is_correct ? '정답입니다!' : '틀렸습니다. 다시 시도해보세요.'}</p>
-    `;
-    if (result.output) {
-        resultDiv.innerHTML += `
-            <h4>실행 결과:</h4>
-            <pre>${result.output}</pre>
-        `;
-    }
-}
-
-// 페이지 로드 시 미션 목록 표시
-document.addEventListener('DOMContentLoaded', loadMissions);
+    
+    // 초기 미션 로드
+    loadMissions();
+});

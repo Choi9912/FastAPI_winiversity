@@ -14,24 +14,20 @@ class Mission(Base):
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     exam_type: Mapped[str] = mapped_column(String(10), nullable=False)
 
-    multiple_choice = relationship("MultipleChoiceMission", back_populates="mission", uselist=False)
-    code_submission = relationship("CodeSubmissionMission", back_populates="mission", uselist=False)
-    submissions: Mapped[List["MissionSubmission"]] = relationship(
-        "MissionSubmission", back_populates="mission"
-    )
+    multiple_choice: Mapped[Optional["MultipleChoiceMission"]] = relationship("MultipleChoiceMission", back_populates="mission", uselist=False)
+    code_submission: Mapped[Optional["CodeSubmissionMission"]] = relationship("CodeSubmissionMission", back_populates="mission", uselist=False)
+    submissions: Mapped[List["MissionSubmission"]] = relationship("MissionSubmission", back_populates="mission")
 
 
 class MultipleChoiceMission(Base):
     __tablename__ = "multiple_choice_missions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    mission_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("missions.id"), unique=True
-    )
-    options: Mapped[str] = mapped_column(JSON, nullable=False)
-    correct_answer: Mapped[str] = mapped_column(String(1), nullable=False)
+    mission_id: Mapped[int] = mapped_column(Integer, ForeignKey("missions.id"))
+    options: Mapped[str] = mapped_column(String)  # JSON 형식의 문자열로 저장
+    correct_answer: Mapped[int] = mapped_column(Integer)  # 정답의 인덱스
 
-    mission = relationship("Mission", back_populates="multiple_choice")
+    mission: Mapped["Mission"] = relationship("Mission", back_populates="multiple_choice")
 
     def dict(self):
         return {
@@ -44,14 +40,12 @@ class CodeSubmissionMission(Base):
     __tablename__ = "code_submission_missions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    mission_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("missions.id"), unique=True
-    )
+    mission_id: Mapped[int] = mapped_column(Integer, ForeignKey("missions.id"), unique=True)
     problem_description: Mapped[str] = mapped_column(String, nullable=False)
     initial_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     test_cases: Mapped[str] = mapped_column(JSON, nullable=False)
 
-    mission = relationship("Mission", back_populates="code_submission")
+    mission: Mapped["Mission"] = relationship("Mission", back_populates="code_submission")
 
     def dict(self):
         return {
@@ -73,9 +67,7 @@ class MissionSubmission(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="missions_submissions")
     mission: Mapped["Mission"] = relationship("Mission", back_populates="submissions")
-    multiple_choice: Mapped[Optional["MultipleChoiceSubmission"]] = relationship(
-        "MultipleChoiceSubmission", uselist=False, back_populates="submission"
-    )
+    multiple_choice: Mapped[Optional["MultipleChoiceSubmission"]] = relationship("MultipleChoiceSubmission", uselist=False, back_populates="submission")
 
 
 class MultipleChoiceSubmission(Base):

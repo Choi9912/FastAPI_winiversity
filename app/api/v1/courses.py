@@ -8,6 +8,8 @@ from ...models.user import User
 from ...db.session import get_async_db
 from ...api.dependencies import get_current_active_user
 from sqlalchemy import select, delete
+from ...schemas.mission import MissionInDB
+from ...models.mission import Mission
 
 router = APIRouter(
     prefix="/courses",
@@ -347,3 +349,31 @@ async def get_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     return lesson
+
+
+@router.get("/{course_id}/lessons/{lesson_id}/missions", response_model=List[MissionInDB])
+async def get_lesson_missions(
+    course_id: int,
+    lesson_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(Mission)
+        .options(selectinload(Mission.multiple_choice), selectinload(Mission.code_submission))
+        .where(Mission.course == course_id, Mission.lesson_id == lesson_id)
+    )
+    missions = result.scalars().all()
+    
+    return [
+        MissionInDB(
+            id=mission.id,
+            course=mission.course,
+            question=mission.question,
+            type=mission.type,
+            exam_type=mission.exam_type,
+            multiple_choice=mission.multiple_choice.dict() if mission.multiple_choice else None,
+            code_submission=mission.code_submission.dict() if mission.code_submission else None
+        )
+        for mission in missions
+    ]

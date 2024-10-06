@@ -38,11 +38,12 @@
             <button id="apply-coupon">쿠폰 적용</button>
             <button id="payment-button" disabled>결제하기</button>
         </div>
-                <div id="missionSection" style="display: none;">
+        <div id="missionSection" style="display: none;">
             <div id="missionList"></div>
             <div id="missionDetail"></div>
         </div>
     </main>
+    <a href="#" id="showMissionListLink">미션 목록 보기</a>
 
     <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
@@ -66,7 +67,7 @@
             document.getElementById('missionLink').addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log('Mission clicked');
-                listMissions();
+                showMissionList();  // listMissions() 대신 showMissionList() 사용
             });
             document.getElementById('courseLink').addEventListener('click', (e) => {
                 e.preventDefault();

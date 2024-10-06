@@ -3,6 +3,25 @@ from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 
 
+class MultipleChoiceOption(BaseModel):
+    option: str
+
+
+class MultipleChoiceMissionSchema(BaseModel):
+    options: List[str]
+    correct_answer: int 
+
+    class Config:
+        from_attributes = True
+
+class CodeSubmissionMissionSchema(BaseModel):
+    problem_description: str
+    initial_code: Optional[str]
+    test_cases: List[dict]
+
+    class Config:
+        from_attributes = True
+
 class MultipleChoiceMissionBase(BaseModel):
     options: List[str]
     correct_answer: str = Field(..., pattern="^[A-E]$")
@@ -56,12 +75,11 @@ class MissionInDB(BaseModel):
     question: str
     type: str
     exam_type: str
-    multiple_choice: Optional[Dict[str, Any]] = None
-    code_submission: Optional[Dict[str, Any]] = None
+    multiple_choice: Optional[MultipleChoiceMissionSchema] = None
+    code_submission: Optional[CodeSubmissionMissionSchema] = None
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 class MultipleChoiceSubmissionBase(BaseModel):
     selected_option: str = Field(..., pattern="^[A-E]$")

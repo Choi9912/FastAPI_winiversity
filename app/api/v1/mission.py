@@ -6,6 +6,8 @@ from ...schemas.mission import (
     MissionInDB,
     MissionSubmissionCreate,
     MissionSubmissionInDB,
+    MultipleChoiceMissionSchema,       # 추가
+    CodeSubmissionMissionSchema        # 추가
 )
 from ...models.mission import (
     Mission,
@@ -68,7 +70,19 @@ async def retrieve_mission(mission_id: int, db: AsyncSession = Depends(get_async
     mission = result.unique().scalar_one_or_none()
     if not mission:
         raise HTTPException(status_code=404, detail="Mission not found")
-    return mission
+
+    return MissionInDB(
+        id=mission.id,
+        course=mission.course,
+        question=mission.question,
+        type=mission.type,
+        exam_type=mission.exam_type,
+        multiple_choice=MultipleChoiceMissionSchema(
+            options=mission.multiple_choice.options,
+            correct_answer=mission.multiple_choice.correct_answer  # correct_answer_index에서 correct_answer로 변경
+        ) if mission.multiple_choice else None,
+        code_submission=CodeSubmissionMissionSchema(**mission.code_submission.__dict__) if mission.code_submission else None,
+    )
 
 
 @router.post(

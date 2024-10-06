@@ -78,8 +78,7 @@ class Certificate(BaseModel):
     certificate_number: str
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 class UserUpdate(BaseModel):
     nickname: Optional[str] = None
@@ -87,8 +86,7 @@ class UserUpdate(BaseModel):
     phone_number: Optional[str] = None
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 user_schema = {
     "UserBase": UserBase,

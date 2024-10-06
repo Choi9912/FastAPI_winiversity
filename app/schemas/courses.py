@@ -66,8 +66,7 @@ class CourseInDB(CourseBase):
     lessons: List[LessonInDB]  # Optional[List[LessonInDB]]가 아닌지 확인
 
     class Config:
-        orm_mode = True  # Pydantic v1.x 사용 시
-        # Pydantic v2.x 사용 시 다음과 같이 설정
+
         model_config = {
             "from_attributes": True,
         }
