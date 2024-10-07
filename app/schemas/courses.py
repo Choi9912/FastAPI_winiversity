@@ -63,13 +63,8 @@ class CourseCreate(CourseBase):
 
 class CourseInDB(CourseBase):
     id: int
-    lessons: List[LessonInDB]  # Optional[List[LessonInDB]]가 아닌지 확인
-
-    class Config:
-
-        model_config = {
-            "from_attributes": True,
-        }
+    lessons: List[LessonInDB]  
+    model_config = {"from_attributes": True}
 
 
 class CourseRoadmap(CourseBase):

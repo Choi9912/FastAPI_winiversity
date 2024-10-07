@@ -23,17 +23,11 @@ class MultipleChoiceMission(Base):
     __tablename__ = "multiple_choice_missions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    mission_id: Mapped[int] = mapped_column(Integer, ForeignKey("missions.id"))
-    options: Mapped[str] = mapped_column(String)  # JSON 형식의 문자열로 저장
-    correct_answer: Mapped[int] = mapped_column(Integer)  # 정답의 인덱스
+    mission_id: Mapped[int] = mapped_column(Integer, ForeignKey("missions.id"), unique=True)
+    options: Mapped[List[str]] = mapped_column(JSON)
+    correct_answer: Mapped[str] = mapped_column(String(1))
 
     mission: Mapped["Mission"] = relationship("Mission", back_populates="multiple_choice")
-
-    def dict(self):
-        return {
-            "options": self.options,
-            "correct_answer": self.correct_answer
-        }
 
 
 class CodeSubmissionMission(Base):
@@ -43,16 +37,9 @@ class CodeSubmissionMission(Base):
     mission_id: Mapped[int] = mapped_column(Integer, ForeignKey("missions.id"), unique=True)
     problem_description: Mapped[str] = mapped_column(String, nullable=False)
     initial_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    test_cases: Mapped[str] = mapped_column(JSON, nullable=False)
+    test_cases: Mapped[List[dict]] = mapped_column(JSON, nullable=False)
 
     mission: Mapped["Mission"] = relationship("Mission", back_populates="code_submission")
-
-    def dict(self):
-        return {
-            "problem_description": self.problem_description,
-            "initial_code": self.initial_code,
-            "test_cases": self.test_cases
-        }
 
 
 class MissionSubmission(Base):

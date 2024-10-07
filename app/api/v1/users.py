@@ -34,7 +34,7 @@ async def update_user_profile(
 ):
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
-    user_data = user_update.dict(exclude_unset=True)
+    user_data = user_update.model_dump(exclude_unset=True)  
 
     stmt = update(User).where(User.id == current_user.id).values(**user_data)
     await db.execute(stmt)

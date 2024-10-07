@@ -2,14 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from sqlalchemy.orm import selectinload
+
+from app.models.mission import Mission
+from app.schemas.mission import MissionInDB
 from ...schemas import courses as course_schema
 from ...models.courses import Course, Lesson, LessonStep, Enrollment, LessonProgress
 from ...models.user import User
 from ...db.session import get_async_db
 from ...api.dependencies import get_current_active_user
 from sqlalchemy import select, delete
-from ...schemas.mission import MissionInDB
-from ...models.mission import Mission
 
 router = APIRouter(
     prefix="/courses",
@@ -96,7 +97,7 @@ async def create_course(
             detail="Only administrators can create courses",
         )
 
-    new_course = Course(**course.dict(exclude={"lessons"}))
+    new_course = Course(**course.model_dump(exclude={"lessons"}))  # dict()를 model_dump()로 변경
     if new_course.is_paid and new_course.price <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -108,7 +109,7 @@ async def create_course(
 
     for lesson_data in course.lessons:
         new_lesson = Lesson(
-            **lesson_data.dict(exclude={"steps"}), course_id=new_course.id
+            **lesson_data.model_dump(exclude={"steps"}), course_id=new_course.id  # dict()를 model_dump()로 변경
         )
         db.add(new_lesson)
         await db.flush()
@@ -372,8 +373,8 @@ async def get_lesson_missions(
             question=mission.question,
             type=mission.type,
             exam_type=mission.exam_type,
-            multiple_choice=mission.multiple_choice.dict() if mission.multiple_choice else None,
-            code_submission=mission.code_submission.dict() if mission.code_submission else None
+            multiple_choice=mission.multiple_choice.model_dump() if mission.multiple_choice else None,
+            code_submission=mission.code_submission.model_dump() if mission.code_submission else None
         )
         for mission in missions
     ]

@@ -10,12 +10,19 @@ from dotenv import load_dotenv
 import logging
 from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 시작 시 실행할 코드
+    yield
+    # 종료 시 실행할 코드
+
+app = FastAPI(lifespan=lifespan)
 
 # 정적 파일 설정
 

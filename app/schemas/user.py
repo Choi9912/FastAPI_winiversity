@@ -77,16 +77,14 @@ class Certificate(BaseModel):
     issue_date: datetime
     certificate_number: str
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class UserUpdate(BaseModel):
     nickname: Optional[str] = None
     email: Optional[str] = None
     phone_number: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 user_schema = {
     "UserBase": UserBase,

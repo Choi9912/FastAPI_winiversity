@@ -239,15 +239,8 @@ async def create_mission(
             question=loaded_mission.question,
             type=loaded_mission.type,
             exam_type=loaded_mission.exam_type,
-            multiple_choice={
-                "options": loaded_mission.multiple_choice.options,
-                "correct_answer": loaded_mission.multiple_choice.correct_answer
-            } if loaded_mission.multiple_choice else None,
-            code_submission={
-                "problem_description": loaded_mission.code_submission.problem_description,
-                "initial_code": loaded_mission.code_submission.initial_code,
-                "test_cases": loaded_mission.code_submission.test_cases
-            } if loaded_mission.code_submission else None
+            multiple_choice=loaded_mission.multiple_choice.model_dump() if loaded_mission.multiple_choice else None,  # dict()를 model_dump()로 변경
+            code_submission=loaded_mission.code_submission.model_dump() if loaded_mission.code_submission else None  # dict()를 model_dump()로 변경
         )
     except Exception as e:
         await db.rollback()

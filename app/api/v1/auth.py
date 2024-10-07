@@ -16,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 async def register(
     user: user_schema.UserCreate, db: AsyncSession = Depends(get_async_db)
 ):
-    print(f"Received user data: {user.dict()}")  # 로깅 추가
+    print(f"Received user data: {user.model_dump()}")  
     result = await db.execute(select(User).where(User.username == user.username))
     db_user = result.scalar_one_or_none()
     if db_user:
