@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.db.base import Base
 from app.db.session import engine
-from app.api.v1 import auth, users, admin, courses, payment, mission, certificates
+from app.api.v1 import auth, users, admin, courses, payment, mission, certificates, chat
 from dotenv import load_dotenv
 import logging
 from app.core.config import settings
@@ -22,9 +22,15 @@ async def lifespan(app: FastAPI):
     yield
     # 종료 시 실행할 코드
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs",  # Swagger UI의 URL을 설정 (기본값: "/docs")
+    redoc_url="/redoc",  # ReDoc의 URL을 설정 (기본값: "/redoc")
+    # openapi_url="/openapi.json",  # OpenAPI 스키마의 URL을 설정 (기본값: "/openapi.json")
+    # docs_url=None,  # Swagger UI를 비활성화하려면 None으로 설정
+    # redoc_url=None,  # ReDoc을 비활성화하려면 None으로 설정
+)
 
-# 정적 파일 설정
 
 
 # 템플릿 설정
@@ -46,14 +52,14 @@ async def startup_event():
 
 # 라우터 포함
 
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
-app.include_router(admin.router, prefix="/api/v1")
-app.include_router(courses.router, prefix="/api/v1")
-app.include_router(payment.router, prefix="/api/v1")
-app.include_router(mission.router, prefix="/api/v1")
-app.include_router(certificates.router, prefix="/api/v1")
-
+app.include_router(auth.router, prefix="")
+app.include_router(users.router, prefix="")
+app.include_router(admin.router, prefix="")
+app.include_router(courses.router, prefix="")
+app.include_router(payment.router, prefix="")
+app.include_router(mission.router, prefix="")
+app.include_router(certificates.router, prefix="")
+app.include_router(chat.router, prefix="")
 
 
 

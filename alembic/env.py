@@ -1,6 +1,7 @@
 import asyncio
 import sys
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -32,6 +33,8 @@ target_metadata = Base.metadata
 # other values from the config, defined by the needs of env.py, can be acquired:
 # ... etc.
 
+if os.environ.get('TESTING'):
+    config.set_main_option('sqlalchemy.url', os.environ['DATABASE_URL'] + '_test')
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode."""

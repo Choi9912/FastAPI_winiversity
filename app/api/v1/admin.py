@@ -26,6 +26,9 @@ async def get_all_users(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin),
 ):
+    """
+    모든 사용자 목록을 조회합니다. (관리자 전용)
+    """
     result = await db.execute(select(User))
     users = result.scalars().all()
     return users
@@ -37,6 +40,9 @@ async def get_user_by_id(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin),
 ):
+    """
+    특정 ID의 사용자 정보를 조회합니다. (관리자 전용)
+    """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:

@@ -27,7 +27,11 @@ class MissionBase(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class MissionCreate(MissionBase):
+class MissionCreate(BaseModel):
+    course: str
+    question: str
+    type: str
+    exam_type: str
     multiple_choice: Optional[MultipleChoiceMissionSchema] = None
     code_submission: Optional[CodeSubmissionMissionSchema] = None
 

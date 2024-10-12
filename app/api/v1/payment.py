@@ -53,6 +53,12 @@ async def prepare_payment(
     payment: payment_schema.PaymentPrepareRequest,
     db: AsyncSession = Depends(get_async_db),
 ):
+    """
+    결제 준비 정보를 생성합니다.
+    - 과정 정보 확인
+    - 쿠폰 적용 (있는 경우)
+    - 결제 정보 생성 및 반환
+    """
     course_result = await db.execute(
         select(Course).where(Course.id == payment.course_id)
     )
@@ -94,6 +100,11 @@ async def confirm_payment(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    결제를 확인하고 완료 처리합니다.
+    - 결제 검증 (실제 구현 필요)
+    - 결제 기록 생성 및 저장
+    """
     # Here you would verify the payment with PortOne API
     # For now, we'll assume the payment is valid
 
@@ -121,6 +132,12 @@ async def create_payment(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    새로운 결제를 생성합니다.
+    - 과정 존재 확인
+    - 중복 결제 확인
+    - 결제 기록 생성 및 저장
+    """
     course_result = await db.execute(
         select(Course).where(Course.id == payment.course_id)
     )
@@ -169,6 +186,9 @@ async def get_payment_history(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    현재 사용자의 결제 내역을 조회합니다.
+    """
     result = await db.execute(select(Payment).where(Payment.user_id == current_user.id))
     payments = result.scalars().all()
     return payments
@@ -180,6 +200,12 @@ async def refund_payment(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 결제에 대한 환불을 처리합니다.
+    - 결제 존재 확인
+    - 환불 조건 확인 (완료된 결제, 7일 이내)
+    - 환불 처리 및 상태 업데이트
+    """
     result = await db.execute(
         select(Payment).where(
             Payment.id == payment_id, Payment.user_id == current_user.id
@@ -215,6 +241,12 @@ async def apply_coupon(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    쿠폰을 적용하여 할인된 가격을 계산합니다.
+    - 과정 존재 확인
+    - 쿠폰 유효성 확인
+    - 할인된 가격 계산 및 반환
+    """
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     course = course_result.scalar_one_or_none()
     if not course:

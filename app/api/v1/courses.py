@@ -20,6 +20,9 @@ router = APIRouter(
 
 @router.get("/", response_model=List[course_schema.CourseInDB])
 async def get_all_courses(db: AsyncSession = Depends(get_async_db)):
+    """
+    모든 과정(courses)을 가져옵니다.
+    """
     result = await db.execute(
         select(Course)
         .options(selectinload(Course.lessons).selectinload(Lesson.steps))
@@ -34,6 +37,9 @@ async def get_course_roadmap(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db),
 ):
+    """
+    사용자를 위한 과정 로드맵을 가져옵니다. 사용자의 등록 상태도 포함됩니다.
+    """
     courses_result = await db.execute(
         select(Course).options(selectinload(Course.lessons)).order_by(Course.order)
     )
@@ -45,7 +51,7 @@ async def get_course_roadmap(
     user_enrollments = enrollments_result.scalars().all()
     enrolled_course_ids = {enrollment.course_id for enrollment in user_enrollments}
 
-    roadmap = []
+    roadmap = [] 
     for course in courses:
         course_data = course_schema.CourseRoadmap.from_orm(course)
         course_data.is_enrolled = course.id in enrolled_course_ids
@@ -60,6 +66,9 @@ async def enroll_course(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db),
 ):
+    """
+    특정 과정에 사용자를 등록시킵니다.
+    """
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     course = course_result.scalar_one_or_none()
     if not course:
@@ -91,13 +100,16 @@ async def create_course(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    새로운 과정을 생성합니다. 관리자만 사용 가능합니다.
+    """
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only administrators can create courses",
         )
 
-    new_course = Course(**course.model_dump(exclude={"lessons"}))  # dict()를 model_dump()로 변경
+    new_course = Course(**course.model_dump(exclude={"lessons"})) 
     if new_course.is_paid and new_course.price <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -109,7 +121,7 @@ async def create_course(
 
     for lesson_data in course.lessons:
         new_lesson = Lesson(
-            **lesson_data.model_dump(exclude={"steps"}), course_id=new_course.id  # dict()를 model_dump()로 변경
+            **lesson_data.model_dump(exclude={"steps"}), course_id=new_course.id 
         )
         db.add(new_lesson)
         await db.flush()
@@ -164,6 +176,9 @@ async def create_course(
 
 @router.get("/{course_id}", response_model=course_schema.CourseInDB)
 async def get_course(course_id: int, db: AsyncSession = Depends(get_async_db)):
+    """
+    특정 과정의 상세 정보를 가져옵니다.
+    """
     result = await db.execute(
         select(Course)
         .options(selectinload(Course.lessons).selectinload(Lesson.steps))
@@ -211,6 +226,9 @@ async def add_lesson_to_course(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 과정에 새 수업(lesson)을 추가합니다. 관리자만 사용 가능합니다.
+    """
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403, detail="Only administrators can add lessons"
@@ -242,6 +260,9 @@ async def update_lesson(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수업을 업데이트합니다. 관리자만 사용 가능합니다.
+    """
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403, detail="Only administrators can update lessons"
@@ -267,6 +288,9 @@ async def delete_lesson(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수업을 삭제합니다. 관리자만 사용 가능합니다.
+    """
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=403, detail="Only administrators can delete lessons"
@@ -292,6 +316,9 @@ async def update_lesson_progress(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수업의 진행 상태를 업데이트합니다.
+    """
     lesson_progress_result = await db.execute(
         select(LessonProgress).where(
             LessonProgress.lesson_id == lesson_id,
@@ -321,6 +348,9 @@ async def get_lesson_progress(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수업의 진행 상태를 가져옵니다.
+    """
     lesson_progress_result = await db.execute(
         select(LessonProgress).where(
             LessonProgress.lesson_id == lesson_id,
@@ -341,6 +371,9 @@ async def get_lesson(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수업의 상세 정보를 가져옵니다.
+    """
     lesson_result = await db.execute(
         select(Lesson)
         .options(selectinload(Lesson.steps))
@@ -359,6 +392,9 @@ async def get_lesson_missions(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수업의 미션을 가져옵니다.
+    """
     result = await db.execute(
         select(Mission)
         .options(selectinload(Mission.multiple_choice), selectinload(Mission.code_submission))

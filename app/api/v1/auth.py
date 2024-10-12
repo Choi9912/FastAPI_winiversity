@@ -16,6 +16,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 async def register(
     user: user_schema.UserCreate, db: AsyncSession = Depends(get_async_db)
 ):
+    """
+    새로운 사용자를 등록합니다.
+    - 중복된 사용자명 확인
+    - 비밀번호 해싱
+    - 새 사용자 생성 및 데이터베이스에 저장
+    """
     print(f"Received user data: {user.model_dump()}")  
     result = await db.execute(select(User).where(User.username == user.username))
     db_user = result.scalar_one_or_none()
@@ -46,6 +52,12 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_db),
 ):
+    """
+    사용자 로그인 및 액세스 토큰 발급
+    - 사용자 인증
+    - 마지막 로그인 시간 업데이트
+    - JWT 액세스 토큰 생성 및 반환
+    """
     result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -69,4 +81,8 @@ async def login_for_access_token(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(token: str = Depends(oauth2_scheme)):
+    """
+    사용자 로그아웃
+    - 현재는 클라이언트 측에서 토큰을 삭제하는 것으로 처리
+    """
     return {"msg": "로그아웃 성공"}

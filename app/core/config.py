@@ -23,6 +23,12 @@ class Settings(BaseSettings):
         "CERTIFICATE_DIR", "/path/to/certificate/directory"
     )
 
+    # 테스트 설정 추가
+    TESTING: bool = False
+
+    # 테스트용 SQLite 데이터베이스
+    SQLALCHEMY_DATABASE_URI: str = "sqlite+aiosqlite:///./test.db"
+
     class Config:
         env_file = ".env"
         extra = "ignore"  # 추가 필드 무시

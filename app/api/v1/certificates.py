@@ -23,6 +23,13 @@ async def issue_certificate(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 과정에 대한 수료증을 발급합니다.
+    
+    - 이미 발급된 수료증이 있는지 확인합니다.
+    - 새로운 수료증을 생성하고 데이터베이스에 저장합니다.
+    - 백그라운드 작업으로 PDF 수료증을 생성합니다.
+    """
     # 테스트를 위해 수료 조건 확인 부분을 주석 처리하거나 제거
     # query = select(Enrollment).filter(
     #     Enrollment.user_id == current_user.id,
@@ -78,6 +85,13 @@ async def issue_certificate(
 async def verify_certificate(
     certificate_number: str, db: AsyncSession = Depends(get_async_db)
 ):
+    """
+    주어진 수료증 번호로 수료증을 검증합니다.
+    
+    - 수료증 번호로 데이터베이스에서 수료증을 조회합니다.
+    - 관련된 사용자와 과정 정보를 함께 조회합니다.
+    - 수료증 정보, 발급일, 사용자 이름, 과정 제목을 반환합니다.
+    """
     query = select(Certificate).filter(
         Certificate.certificate_number == certificate_number
     )

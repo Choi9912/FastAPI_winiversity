@@ -4,6 +4,7 @@ from ..db.base import Base
 import enum
 from typing import List, Optional
 from datetime import datetime
+from .chat import chat_room_participants, ChatMessage  # 이 줄을 추가합니다.
 
 class UserRole(str, enum.Enum):
     STUDENT = "STUDENT"
@@ -29,3 +30,7 @@ class User(Base):
     missions_submissions: Mapped[List["MissionSubmission"]] = relationship("MissionSubmission", back_populates="user")
     certificates: Mapped[List["Certificate"]] = relationship("Certificate", back_populates="user")
     lesson_progress: Mapped[List["LessonProgress"]] = relationship("LessonProgress", back_populates="user")
+    
+    # 채팅 관련 필드를 추가합니다.
+    chat_rooms: Mapped[List["ChatRoom"]] = relationship("ChatRoom", secondary=chat_room_participants, back_populates="participants")
+    sent_messages: Mapped[List["ChatMessage"]] = relationship("ChatMessage", back_populates="sender")

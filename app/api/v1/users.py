@@ -23,6 +23,9 @@ router = APIRouter(
 
 @router.get("/me", response_model=user_schema.User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    """
+    현재 로그인한 사용자의 정보를 조회합니다.
+    """
     return current_user
 
 
@@ -32,6 +35,10 @@ async def update_user_profile(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    현재 로그인한 사용자의 프로필 정보를 업데이트합니다.
+    - 학생 권한만 가능
+    """
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
     user_data = user_update.model_dump(exclude_unset=True)  
@@ -48,6 +55,10 @@ async def delete_user_account(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    현재 로그인한 사용자의 계정을 삭제합니다.
+    - 학생 권한만 가능
+    """
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
     stmt = delete(User).where(User.id == current_user.id)
@@ -60,6 +71,11 @@ async def delete_user_account(
 async def create_user(
     user: user_schema.UserCreate, db: AsyncSession = Depends(get_async_db)
 ):
+    """
+    새로운 사용자를 생성합니다.
+    - 중복 사용자명 확인
+    - 비밀번호 해싱
+    """
     result = await db.execute(select(User).where(User.username == user.username))
     db_user = result.scalar_one_or_none()
     if db_user:
@@ -84,6 +100,9 @@ async def get_user_certificates(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    현재 로그인한 사용자의 모든 수료증을 조회합니다.
+    """
     result = await db.execute(
         select(Certificate).where(Certificate.user_id == current_user.id)
     )
@@ -97,6 +116,11 @@ async def download_certificate(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    특정 수료증을 다운로드합니다.
+    - 수료증 존재 확인
+    - PDF 파일 반환
+    """
     result = await db.execute(
         select(Certificate).where(
             Certificate.id == certificate_id, Certificate.user_id == current_user.id
@@ -122,16 +146,25 @@ async def download_certificate(
 
 @router.get("/me/credits", response_model=int)
 async def get_user_credits(current_user: User = Depends(get_current_active_user)):
+    """
+    현재 로그인한 사용자의 크레딧을 조회합니다.
+    """
     return current_user.credits
 
 
 @router.get("/me/learning_time", response_model=int)
 async def get_user_learning_time(current_user: User = Depends(get_current_active_user)):
+    """
+    현재 로그인한 사용자의 총 학습 시간을 조회합니다.
+    """
     return current_user.total_learning_time
 
 
 @router.get("/me/course_valid_until", response_model=datetime)
 async def get_course_valid_until(current_user: User = Depends(get_current_active_user)):
+    """
+    현재 로그인한 사용자의 과정 유효 기간을 조회합니다.
+    """
     if not current_user.course_valid_until:
         raise HTTPException(status_code=404, detail="No active course subscription")
     return current_user.course_valid_until
@@ -143,6 +176,10 @@ async def update_user_me(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    현재 로그인한 사용자의 정보를 업데이트합니다.
+    - 학생 권한만 가능
+    """
     if current_user.role != UserRole.STUDENT:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
     user_data = user_update.dict(exclude_unset=True)

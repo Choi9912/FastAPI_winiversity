@@ -37,6 +37,9 @@ router = APIRouter(
 
 @router.get("/", response_model=List[MissionInDB])
 async def get_missions(db: AsyncSession = Depends(get_async_db)):
+    """
+    모든 미션을 가져옵니다.
+    """
     async with db.begin():
         result = await db.execute(
             select(Mission).options(
@@ -62,6 +65,9 @@ async def get_missions(db: AsyncSession = Depends(get_async_db)):
 
 @router.get("/{mission_id}", response_model=MissionInDB)
 async def retrieve_mission(mission_id: int, db: AsyncSession = Depends(get_async_db)):
+    """
+    특정 ID의 미션을 가져옵니다.
+    """
     result = await db.execute(
         select(Mission)
         .options(joinedload(Mission.multiple_choice), joinedload(Mission.code_submission))
@@ -96,6 +102,9 @@ async def submit_mission(
     db: AsyncSession = Depends(get_async_db),
     current_user: int = Depends(get_current_user),
 ):
+    """
+    특정 미션에 대한 답변을 제출합니다.
+    """
     result = await db.execute(select(Mission).where(Mission.id == mission_id))
     mission = result.scalar_one_or_none()
     if not mission:
@@ -149,6 +158,9 @@ async def submit_mission(
 
 
 def execute_and_grade_code(code_mission: CodeSubmissionMission, submitted_code: str):
+    """
+    제출된 코드를 실행하고 채점합니다.
+    """
     # 제출된 코드의 출력을 캡처하기 위한 설정
     old_stdout = sys.stdout
     redirected_output = sys.stdout = StringIO()
@@ -196,6 +208,9 @@ async def create_mission(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """
+    새로운 미션을 생성합니다.
+    """
     try:
         new_mission = Mission(
             course=mission.course,
@@ -225,7 +240,6 @@ async def create_mission(
         await db.commit()
         await db.refresh(new_mission)
         
-        # 명시적으로 관련 객체 로드
         result = await db.execute(
             select(Mission)
             .options(selectinload(Mission.multiple_choice), selectinload(Mission.code_submission))
