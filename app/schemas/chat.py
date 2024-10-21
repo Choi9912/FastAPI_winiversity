@@ -1,32 +1,27 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+from pydantic import BaseModel
 from datetime import datetime
-
+from typing import List
 
 class ChatRoomBase(BaseModel):
     name: str
     type: str
 
-
 class ChatRoomCreate(ChatRoomBase):
     pass
 
-
 class ChatRoom(ChatRoomBase):
     id: int
+    creator_id: int
     created_at: datetime
-    created_by: int
 
-    model_config = ConfigDict(from_attributes=True)
-
+    class Config:
+        orm_mode = True
 
 class ChatMessageBase(BaseModel):
     content: str
 
-
 class ChatMessageCreate(ChatMessageBase):
     pass
-
 
 class ChatMessage(ChatMessageBase):
     id: int
@@ -34,12 +29,12 @@ class ChatMessage(ChatMessageBase):
     sender_id: int
     timestamp: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        orm_mode = True
 
-
-class ChatRoomWithMessages(ChatRoom):
-    messages: List[ChatMessage] = []
-
-
-class ChatRoomInvite(BaseModel):
+class ChatRoomParticipant(BaseModel):
+    room_id: int
     user_id: int
+
+    class Config:
+        orm_mode = True

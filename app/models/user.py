@@ -32,5 +32,6 @@ class User(Base):
     lesson_progress: Mapped[List["LessonProgress"]] = relationship("LessonProgress", back_populates="user")
     
     # 채팅 관련 필드를 추가합니다.
-    chat_rooms: Mapped[List["ChatRoom"]] = relationship("ChatRoom", secondary=chat_room_participants, back_populates="participants")
-    sent_messages: Mapped[List["ChatMessage"]] = relationship("ChatMessage", back_populates="sender")
+    created_rooms = relationship("ChatRoom", back_populates="creator")
+    messages = relationship("ChatMessage", back_populates="sender")
+    chat_rooms = relationship("ChatRoom", secondary=chat_room_participants, back_populates="participants")

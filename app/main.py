@@ -11,6 +11,7 @@ import logging
 from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,10 +32,6 @@ app = FastAPI(
     # redoc_url=None,  # ReDoc을 비활성화하려면 None으로 설정
 )
 
-
-
-# 템플릿 설정
-# templates = Jinja2Templates(directory="app/templates")
 
 
 # 비동기 함수로 데이터베이스 테이블 생성

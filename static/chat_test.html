@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Room</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #chat-log { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
+        #message-input { width: 80%; }
+        #send-button { width: 15%; }
+    </style>
+</head>
+<body>
+    <h1 id="room-name">Chat Room</h1>
+    <div id="chat-log"></div>
+    <input type="text" id="message-input" placeholder="Type your message here..." />
+    <button id="send-button">Send</button>
+
+    <script>
+        // URL에서 room_id와 token 파싱
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room_id');
+        const token = urlParams.get('token');
+
+        if (!roomId || !token) {
+            document.body.innerHTML = '<h1>Error</h1><p>Room ID and token are required. Please check the URL.</p>';
+            throw new Error('Missing room_id or token');
+        }
+
+        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+        const wsPath = `${wsScheme}://${window.location.host}/chat/ws/${roomId}?token=${token}`;
+        const socket = new WebSocket(wsPath);
+
+        const chatLog = document.getElementById('chat-log');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        socket.onopen = () => {
+            console.log("WebSocket connection established");
+        };
+
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            document.getElementById('chat-log').innerHTML += '<p style="color: red;">Error: Could not connect to the chat server. Please check your connection and try again.</p>';
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const messageElement = document.createElement('div');
+            if (data.sender === "시스템") {
+                messageElement.style.fontStyle = "italic";
+                messageElement.textContent = `${data.content}`;
+            } else {
+                messageElement.textContent = `${data.sender}: ${data.content}`;
+            }
+            chatLog.appendChild(messageElement);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        };
+
+        socket.onclose = (event) => {
+            console.log("WebSocket connection closed:", event);
+            const messageElement = document.createElement('div');
+            messageElement.textContent = "Disconnected from the chat.";
+            chatLog.appendChild(messageElement);
+        };
+
+        sendButton.addEventListener('click', () => {
+            const message = messageInput.value.trim();
+            if (message !== "") {
+                socket.send(JSON.stringify({ content: message }));
+                messageInput.value = "";
+            }
+        });
+
+        messageInput.addEventListener('keyup', (event) => {
+            if (event.key === '

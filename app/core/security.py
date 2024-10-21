@@ -1,10 +1,15 @@
 from datetime import datetime, timedelta
-from typing import Union, Any
-from jose import jwt
+from typing import Union, Any, Optional
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 import redis
+from ..db.session import get_async_db
+from ..models.user import User
+from sqlalchemy import select
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -22,18 +27,15 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: timedelta = None
+    subject: str, expires_delta: Optional[timedelta] = None
 ) -> str:
-    import uuid
-
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-    jti = str(uuid.uuid4())
-    to_encode = {"exp": expire, "sub": str(subject), "jti": jti}
+    to_encode = {"exp": expire, "sub": subject}
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
@@ -47,3 +49,33 @@ def blacklist_token(jti: str):
 
 def is_token_blacklisted(jti: str) -> bool:
     return redis_client.exists(jti) == 1
+
+async def verify_token(token: str, db: AsyncSession) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = await db.execute(select(User).filter(User.username == username))
+    user = user.scalar_one_or_none()
+    if user is None:
+        raise credentials_exception
+    return user
+
+def decode_access_token(token: str):
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
