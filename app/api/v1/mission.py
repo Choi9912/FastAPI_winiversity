@@ -1,264 +1,48 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from ...schemas.mission import (
-    MissionCreate,
-    MissionInDB,
-    MissionSubmissionCreate,
-    MissionSubmissionInDB,
-    MultipleChoiceMissionSchema,       # 추가
-    CodeSubmissionMissionSchema        # 추가
-)
-from ...models.mission import (
-    Mission,
-    MultipleChoiceMission,
-    CodeSubmissionMission,
-    MissionSubmission,
-    MultipleChoiceSubmission,
-)
-from ...db.session import get_async_db
-from ...api.dependencies import (
-    get_current_active_user,
-    get_current_user,
-    get_current_admin_user,
-)
-import sys
-from io import StringIO
+from ...schemas import mission as mission_schema
 from ...models.user import User
-from sqlalchemy import select
-from sqlalchemy.orm import relationship, joinedload, selectinload
-from sqlalchemy.future import select
+from ...db.session import get_async_db
+from ...api.dependencies import get_current_active_user
+from ...services.mission_service import MissionService
 
-router = APIRouter(
-    prefix="/missions",
-    tags=["missions"],
-)
+router = APIRouter(prefix="/missions", tags=["missions"])
 
+@router.get("/", response_model=List[mission_schema.MissionInDB])
+async def get_missions(
+    db: AsyncSession = Depends(get_async_db),
+    mission_service: MissionService = Depends()
+):
+    missions = await mission_service.get_missions(db)
+    return [mission_schema.MissionInDB.from_orm(mission) for mission in missions]
 
-@router.get("/", response_model=List[MissionInDB])
-async def get_missions(db: AsyncSession = Depends(get_async_db)):
-    """
-    모든 미션을 가져옵니다.
-    """
-    async with db.begin():
-        result = await db.execute(
-            select(Mission).options(
-                selectinload(Mission.multiple_choice),
-                selectinload(Mission.code_submission)
-            )
-        )
-        missions = result.scalars().all()
+@router.get("/{mission_id}", response_model=mission_schema.MissionInDB)
+async def retrieve_mission(
+    mission_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    mission_service: MissionService = Depends()
+):
+    mission = await mission_service.retrieve_mission(db, mission_id)
+    return mission_schema.MissionInDB.from_orm(mission)
 
-    return [
-        MissionInDB(
-            id=mission.id,
-            course=mission.course,
-            question=mission.question,
-            type=mission.type,
-            exam_type=mission.exam_type,
-            multiple_choice=mission.multiple_choice.dict() if mission.multiple_choice else None,
-            code_submission=mission.code_submission.dict() if mission.code_submission else None
-        )
-        for mission in missions
-    ]
-
-
-@router.get("/{mission_id}", response_model=MissionInDB)
-async def retrieve_mission(mission_id: int, db: AsyncSession = Depends(get_async_db)):
-    """
-    특정 ID의 미션을 가져옵니다.
-    """
-    result = await db.execute(
-        select(Mission)
-        .options(joinedload(Mission.multiple_choice), joinedload(Mission.code_submission))
-        .where(Mission.id == mission_id)
-    )
-    mission = result.unique().scalar_one_or_none()
-    if not mission:
-        raise HTTPException(status_code=404, detail="Mission not found")
-
-    return MissionInDB(
-        id=mission.id,
-        course=mission.course,
-        question=mission.question,
-        type=mission.type,
-        exam_type=mission.exam_type,
-        multiple_choice=MultipleChoiceMissionSchema(
-            options=mission.multiple_choice.options,
-            correct_answer=mission.multiple_choice.correct_answer  # correct_answer_index에서 correct_answer로 변경
-        ) if mission.multiple_choice else None,
-        code_submission=CodeSubmissionMissionSchema(**mission.code_submission.__dict__) if mission.code_submission else None,
-    )
-
-
-@router.post(
-    "/{mission_id}/submit",
-    response_model=MissionSubmissionInDB,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/{mission_id}/submit", response_model=mission_schema.MissionSubmissionInDB)
 async def submit_mission(
     mission_id: int,
-    submission: MissionSubmissionCreate,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: int = Depends(get_current_user),
-):
-    """
-    특정 미션에 대한 답변을 제출합니다.
-    """
-    result = await db.execute(select(Mission).where(Mission.id == mission_id))
-    mission = result.scalar_one_or_none()
-    if not mission:
-        raise HTTPException(status_code=404, detail="Mission not found")
-
-    if mission.type == "multiple_choice":
-        selected_option = (
-            submission.multiple_choice.selected_option
-            if submission.multiple_choice
-            else None
-        )
-        if not selected_option:
-            raise HTTPException(status_code=400, detail="Selected option is required")
-
-        correct_option = mission.multiple_choice.correct_answer
-        is_correct = selected_option == correct_option
-
-        mission_submission = MissionSubmission(
-            user_id=current_user,
-            mission_id=mission.id,
-            submitted_answer=selected_option,
-            is_correct=is_correct,
-        )
-        db.add(mission_submission)
-        await db.commit()
-        await db.refresh(mission_submission)
-        return mission_submission
-
-    elif mission.type == "code_submission":
-        submitted_code = submission.submitted_answer
-        if not submitted_code:
-            raise HTTPException(status_code=400, detail="No code submitted.")
-
-        is_correct, output = execute_and_grade_code(
-            mission.code_submission, submitted_code
-        )
-
-        mission_submission = MissionSubmission(
-            user_id=current_user,
-            mission_id=mission.id,
-            submitted_answer=submitted_code,
-            is_correct=is_correct,
-        )
-        db.add(mission_submission)
-        await db.commit()
-        await db.refresh(mission_submission)
-        return mission_submission
-
-    else:
-        raise HTTPException(status_code=400, detail="Invalid mission type")
-
-
-def execute_and_grade_code(code_mission: CodeSubmissionMission, submitted_code: str):
-    """
-    제출된 코드를 실행하고 채점합니다.
-    """
-    # 제출된 코드의 출력을 캡처하기 위한 설정
-    old_stdout = sys.stdout
-    redirected_output = sys.stdout = StringIO()
-
-    is_correct = True
-    output = ""
-
-    try:
-        # 제출된 코드 실행
-        exec(submitted_code)
-
-        # 테스트 케이스 실행
-        for test_case in code_mission.test_cases:
-            # 테스트 케이스 입력 설정
-            sys.stdin = StringIO(test_case["input"])
-
-            # 테스트 케이스 실행
-            exec(submitted_code)
-
-            # 출력 확인
-            result = redirected_output.getvalue().strip()
-            if result != test_case["expected_output"].strip():
-                is_correct = False
-                output += f"Test case failed. Input: {test_case['input']}, Expected: {test_case['expected_output']}, Got: {result}\n"
-
-            # 출력 버퍼 초기화
-            redirected_output.truncate(0)
-            redirected_output.seek(0)
-
-    except Exception as e:
-        is_correct = False
-        output = f"Error occurred: {str(e)}"
-
-    finally:
-        # 표준 출력 및 입력 복원
-        sys.stdout = old_stdout
-        sys.stdin = sys.__stdin__
-
-    return is_correct, output
-
-
-@router.post("/", response_model=MissionInDB)
-async def create_mission(
-    mission: MissionCreate,
+    submission: mission_schema.MissionSubmissionCreate,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    mission_service: MissionService = Depends()
 ):
-    """
-    새로운 미션을 생성합니다.
-    """
-    try:
-        new_mission = Mission(
-            course=mission.course,
-            question=mission.question,
-            type=mission.type,
-            exam_type=mission.exam_type,
-        )
-        db.add(new_mission)
-        await db.flush()
+    return await mission_service.submit_mission(db, mission_id, current_user.id, submission)
 
-        if mission.type == "multiple_choice" and mission.multiple_choice:
-            multiple_choice = MultipleChoiceMission(
-                mission_id=new_mission.id,
-                options=mission.multiple_choice.options,
-                correct_answer=mission.multiple_choice.correct_answer,
-            )
-            db.add(multiple_choice)
-        elif mission.type == "code_submission" and mission.code_submission:
-            code_submission = CodeSubmissionMission(
-                mission_id=new_mission.id,
-                problem_description=mission.code_submission.problem_description,
-                initial_code=mission.code_submission.initial_code,
-                test_cases=mission.code_submission.test_cases,
-            )
-            db.add(code_submission)
-
-        await db.commit()
-        await db.refresh(new_mission)
-        
-        result = await db.execute(
-            select(Mission)
-            .options(selectinload(Mission.multiple_choice), selectinload(Mission.code_submission))
-            .where(Mission.id == new_mission.id)
-        )
-        loaded_mission = result.scalar_one()
-        
-        return MissionInDB(
-            id=loaded_mission.id,
-            course=loaded_mission.course,
-            question=loaded_mission.question,
-            type=loaded_mission.type,
-            exam_type=loaded_mission.exam_type,
-            multiple_choice=loaded_mission.multiple_choice.model_dump() if loaded_mission.multiple_choice else None,  # dict()를 model_dump()로 변경
-            code_submission=loaded_mission.code_submission.model_dump() if loaded_mission.code_submission else None  # dict()를 model_dump()로 변경
-        )
-    except Exception as e:
-        await db.rollback()
-        print(f"Error creating mission: {str(e)}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+@router.post("/", response_model=mission_schema.MissionInDB)
+async def create_mission(
+    mission: mission_schema.MissionCreate,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_active_user),
+    mission_service: MissionService = Depends()
+):
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Only administrators can create missions")
+    return await mission_service.create_mission(db, mission)

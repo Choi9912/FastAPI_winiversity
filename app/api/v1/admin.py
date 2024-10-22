@@ -2,49 +2,71 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from ...schemas import user as user_schema
+from ...schemas import courses as course_schema
 from ...models.user import User
 from ...db.session import get_async_db
-from ...api.dependencies import get_current_active_user
-from sqlalchemy import select
+from ...api.dependencies import admin_required
+from ...services.admin_service import AdminService
 
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
+    dependencies=[Depends(admin_required)],  # 모든 admin 라우트에 admin_required 의존성 적용
 )
-
-
-async def require_admin(current_user: User = Depends(get_current_active_user)):
-    if current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="관리자 권한이 필요합니다."
-        )
-    return current_user
-
 
 @router.get("/users", response_model=List[user_schema.User])
 async def get_all_users(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_admin),
+    admin_service: AdminService = Depends()
 ):
-    """
-    모든 사용자 목록을 조회합니다. (관리자 전용)
-    """
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return users
-
+    return await admin_service.get_all_users(db)
 
 @router.get("/users/{user_id}", response_model=user_schema.User)
 async def get_user_by_id(
     user_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_admin),
+    admin_service: AdminService = Depends()
 ):
-    """
-    특정 ID의 사용자 정보를 조회합니다. (관리자 전용)
-    """
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-    return user
+    return await admin_service.get_user_by_id(db, user_id)
+
+@router.put("/users/{user_id}", response_model=user_schema.User)
+async def update_user(
+    user_id: int,
+    user_update: user_schema.UserUpdate,
+    db: AsyncSession = Depends(get_async_db),
+    admin_service: AdminService = Depends()
+):
+    return await admin_service.update_user(db, user_id, user_update)
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    admin_service: AdminService = Depends()
+):
+    await admin_service.delete_user(db, user_id)
+
+@router.post("/courses", response_model=course_schema.CourseInDB)
+async def create_course(
+    course: course_schema.CourseCreate,
+    db: AsyncSession = Depends(get_async_db),
+    admin_service: AdminService = Depends()
+):
+    return await admin_service.create_course(db, course)
+
+@router.put("/courses/{course_id}", response_model=course_schema.CourseInDB)
+async def update_course(
+    course_id: int,
+    course_update: course_schema.CourseUpdate,
+    db: AsyncSession = Depends(get_async_db),
+    admin_service: AdminService = Depends()
+):
+    return await admin_service.update_course(db, course_id, course_update)
+
+@router.delete("/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_course(
+    course_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    admin_service: AdminService = Depends()
+):
+    await admin_service.delete_course(db, course_id)

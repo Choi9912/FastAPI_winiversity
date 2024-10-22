@@ -1,20 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
-from ...db.session import get_async_db
-from ...models.courses import Certificate, Course, Enrollment
-from ...models.user import User
-from ...schemas import certificates as cert_schema
-from ...api.dependencies import get_current_active_user
-from ...core.pdf_generator import generate_certificate_pdf
-import uuid
-from datetime import datetime
-
-router = APIRouter()
-
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from ...db.session import get_async_db
+from ...models.user import User
+from ...api.dependencies import get_current_active_user
+from ...services.certificate_service import CertificateService
+from ...schemas import certificates as cert_schema
 
+router = APIRouter(prefix="/certificates", tags=["certificates"])
 
 @router.post("/issue/{course_id}", response_model=cert_schema.CertificateInDB)
 async def issue_certificate(
@@ -22,103 +14,14 @@ async def issue_certificate(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    certificate_service: CertificateService = Depends()
 ):
-    """
-    특정 과정에 대한 수료증을 발급합니다.
-    
-    - 이미 발급된 수료증이 있는지 확인합니다.
-    - 새로운 수료증을 생성하고 데이터베이스에 저장합니다.
-    - 백그라운드 작업으로 PDF 수료증을 생성합니다.
-    """
-    # 테스트를 위해 수료 조건 확인 부분을 주석 처리하거나 제거
-    # query = select(Enrollment).filter(
-    #     Enrollment.user_id == current_user.id,
-    #     Enrollment.course_id == course_id,
-    #     Enrollment.is_completed == True,
-    # )
-    # result = await db.execute(query)
-    # enrollment = result.scalar_one_or_none()
+    return await certificate_service.issue_certificate(db, current_user.id, course_id)
 
-    # if not enrollment:
-    #     raise HTTPException(status_code=400, detail="Course not completed")
-
-    # 이미 발급된 수료증 확인
-    query = select(Certificate).filter(
-        Certificate.user_id == current_user.id, Certificate.course_id == course_id
-    )
-    result = await db.execute(query)
-    existing_cert = result.scalar_one_or_none()
-
-    if existing_cert:
-        raise HTTPException(status_code=400, detail="Certificate already issued")
-
-    # 새 수료증 생성
-    new_cert = Certificate(
-        user_id=current_user.id,
-        course_id=course_id,
-        issue_date=datetime.utcnow(),
-        certificate_number=str(uuid.uuid4()),
-    )
-    db.add(new_cert)
-    await db.commit()
-    await db.refresh(new_cert)
-
-    # 코스 정보 조회
-    course_query = select(Course).filter(Course.id == course_id)
-    course_result = await db.execute(course_query)
-    course = course_result.scalar_one_or_none()
-
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
-    # 백그라운드에서 PDF 생성
-    background_tasks.add_task(
-        generate_certificate_pdf, new_cert, current_user, course, db
-    )
-
-    return new_cert
-
-
-@router.get(
-    "/verify/{certificate_number}", response_model=cert_schema.CertificateVerification
-)
+@router.get("/verify/{certificate_number}", response_model=cert_schema.CertificateVerification)
 async def verify_certificate(
-    certificate_number: str, db: AsyncSession = Depends(get_async_db)
+    certificate_number: str,
+    db: AsyncSession = Depends(get_async_db),
+    certificate_service: CertificateService = Depends()
 ):
-    """
-    주어진 수료증 번호로 수료증을 검증합니다.
-    
-    - 수료증 번호로 데이터베이스에서 수료증을 조회합니다.
-    - 관련된 사용자와 과정 정보를 함께 조회합니다.
-    - 수료증 정보, 발급일, 사용자 이름, 과정 제목을 반환합니다.
-    """
-    query = select(Certificate).filter(
-        Certificate.certificate_number == certificate_number
-    )
-    result = await db.execute(query)
-    certificate = result.scalar_one_or_none()
-
-    if not certificate:
-        raise HTTPException(status_code=404, detail="Certificate not found")
-
-    # 사용자 정보 조회
-    user_query = select(User).filter(User.id == certificate.user_id)
-    user_result = await db.execute(user_query)
-    user = user_result.scalar_one_or_none()
-
-    # 코스 정보 조회
-    course_query = select(Course).filter(Course.id == certificate.course_id)
-    course_result = await db.execute(course_query)
-    course = course_result.scalar_one_or_none()
-
-    # user_name 필드에 대한 처리를 확실히 합니다.
-    user_name = "Unknown"
-    if user:
-        user_name = user.nickname or user.username or "Unknown"
-
-    return cert_schema.CertificateVerification(
-        certificate_number=certificate.certificate_number,
-        issue_date=certificate.issue_date,
-        user_name=user_name,  # 항상 값이 있도록 합니다.
-        course_title=course.title if course else "Unknown",
-    )
+    return await certificate_service.verify_certificate(db, certificate_number)

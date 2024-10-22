@@ -76,10 +76,11 @@ def decode_access_token(token: str):
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
-        return payload
+            raise HTTPException(status_code=401, detail="Could not validate credentials")
+        token_data = TokenData(username=username)
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+    return token_data
 
 
 def create_refresh_token(
@@ -97,4 +98,13 @@ def create_refresh_token(
 
 
 def decode_token(token: str):
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        return username
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+

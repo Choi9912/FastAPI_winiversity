@@ -8,19 +8,19 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr
     username: str
-    phone_number: str  # 새로 추가된 필드
+    phone_number: str 
 
     model_config = {"from_attributes": True}
 
 
 class UserCreate(BaseModel):
-    username: str = Field(..., min_length=1, max_length=50)
-    email: EmailStr
-    password: str = Field(..., min_length=1)
-    nickname: str = Field(..., min_length=1, max_length=50)
-    phone_number: str = Field(..., min_length=1, max_length=15)
+    username: str
+    email: EmailStr  
+    password: str
+    nickname: str
+    role: UserRole = UserRole.STUDENT
     is_active: bool = True
-    role: UserRole
+    phone_number: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
@@ -79,12 +79,18 @@ class Certificate(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
 class UserUpdate(BaseModel):
     nickname: Optional[str] = None
     email: Optional[str] = None
     phone_number: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class TokenPair(Token):
+    refresh_token: str
+
 
 user_schema = {
     "UserBase": UserBase,

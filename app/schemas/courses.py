@@ -113,3 +113,13 @@ class LessonProgressInDB(LessonProgressBase):
     lesson_id: int
 
     model_config = {"from_attributes": True}
+
+
+class CourseUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    order: Optional[int] = None
+    is_paid: Optional[bool] = None
+    price: Optional[float] = None
+
+    model_config = {"from_attributes": True}

@@ -2,237 +2,46 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...db.session import get_async_db
 from ...models.user import User
-from ...models.courses import Course
-from ...models.payment import Coupon, Payment, PaymentStatus
+from ...api.dependencies import get_current_active_user
+from ...services.payment_service import PaymentService
 from ...schemas import payment as payment_schema
-from ..dependencies import get_current_active_user
-from datetime import datetime, timedelta
 from typing import List
-from sqlalchemy import select
-import requests
-import time
-import uuid
-import os
-from dotenv import load_dotenv
 
-router = APIRouter(
-    prefix="/payments",
-    tags=["payments"],
-)
-
-# .env 파일 로드
-load_dotenv()
-
-# PortOne 설정
-PORTONE_STORE_ID = os.getenv("PORTONE_STORE_ID")
-PORTONE_CHANNEL_GROUP_ID = os.getenv("PORTONE_CHANNEL_GROUP_ID")
-PORTONE_API_URL = os.getenv("PORTONE_API_URL")
-
-
-async def apply_coupon(db: AsyncSession, course_id: int, coupon_code: str) -> float:
-    coupon_result = await db.execute(
-        select(Coupon).where(
-            Coupon.code == coupon_code, Coupon.valid_until > datetime.utcnow()
-        )
-    )
-    coupon = coupon_result.scalar_one_or_none()
-    if not coupon:
-        return 0.0
-
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    course = course_result.scalar_one_or_none()
-    if not course:
-        return 0.0
-
-    discount_amount = course.price * (coupon.discount_percent / 100)
-    return discount_amount
-
+router = APIRouter(prefix="/payments", tags=["payments"])
 
 @router.post("/prepare", response_model=payment_schema.PaymentPrepareResponse)
 async def prepare_payment(
     payment: payment_schema.PaymentPrepareRequest,
     db: AsyncSession = Depends(get_async_db),
+    payment_service: PaymentService = Depends()
 ):
-    """
-    결제 준비 정보를 생성합니다.
-    - 과정 정보 확인
-    - 쿠폰 적용 (있는 경우)
-    - 결제 정보 생성 및 반환
-    """
-    course_result = await db.execute(
-        select(Course).where(Course.id == payment.course_id)
-    )
-    course = course_result.scalar_one_or_none()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    return await payment_service.prepare_payment(db, payment)
 
-    payment_id = f"payment-{uuid.uuid4()}"
-
-    discount_amount = 0.0
-    if payment.coupon_code:
-        discount_amount = await apply_coupon(db, payment.course_id, payment.coupon_code)
-
-    total_amount = course.price - discount_amount
-
-    customer_info = payment_schema.CustomerInfo(
-        customerId="test_user_id",
-        fullName="Test User",
-        phoneNumber="01012345678",
-        email="test@example.com",
-    )
-
-    return payment_schema.PaymentPrepareResponse(
-        storeId=PORTONE_STORE_ID,
-        channelGroupId=PORTONE_CHANNEL_GROUP_ID,
-        paymentId=payment_id,
-        orderName=course.title,
-        totalAmount=total_amount,
-        discountAmount=discount_amount,
-        currency="KRW",
-        payMethod=payment.method,
-        customer=customer_info,
-    )
-
-
-@router.post("/confirm", response_model=payment_schema.PaymentResponse)
+@router.post("/confirm", response_model=payment_schema.Payment)
 async def confirm_payment(
     verification: payment_schema.PaymentConfirmRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends()
 ):
-    """
-    결제를 확인하고 완료 처리합니다.
-    - 결제 검증 (실제 구현 필요)
-    - 결제 기록 생성 및 저장
-    """
-    # Here you would verify the payment with PortOne API
-    # For now, we'll assume the payment is valid
+    return await payment_service.confirm_payment(db, current_user.id, verification)
 
-    # Create new payment record
-    new_payment = Payment(
-        user_id=current_user.id,
-        course_id=verification.course_id,
-        amount=verification.amount,
-        method=verification.method,
-        status=PaymentStatus.COMPLETED,
-        created_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
-        expiration_date=datetime.utcnow() + timedelta(days=730),  # 2 years
-    )
-    db.add(new_payment)
-    await db.commit()
-    await db.refresh(new_payment)
-
-    return new_payment
-
-
-@router.post("/", response_model=payment_schema.PaymentResponse)
-async def create_payment(
-    payment: payment_schema.PaymentCreate,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_active_user),
-):
-    """
-    새로운 결제를 생성합니다.
-    - 과정 존재 확인
-    - 중복 결제 확인
-    - 결제 기록 생성 및 저장
-    """
-    course_result = await db.execute(
-        select(Course).where(Course.id == payment.course_id)
-    )
-    course = course_result.scalar_one_or_none()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
-    # Check if user already paid for this course
-    existing_payment_result = await db.execute(
-        select(Payment).where(
-            Payment.user_id == current_user.id,
-            Payment.course_id == course.id,
-            Payment.status == PaymentStatus.COMPLETED,
-        )
-    )
-    existing_payment = existing_payment_result.scalar_one_or_none()
-    if existing_payment:
-        raise HTTPException(
-            status_code=400, detail="You have already paid for this course"
-        )
-
-    new_payment = Payment(
-        user_id=current_user.id,
-        course_id=course.id,
-        amount=course.price,
-        method=payment.method,
-        created_at=datetime.utcnow(),
-        expiration_date=datetime.utcnow() + timedelta(days=730),  # 2 years
-    )
-    db.add(new_payment)
-    await db.commit()
-    await db.refresh(new_payment)
-
-    # Here you would integrate with a payment gateway
-    # For now, we'll just mark it as completed
-    new_payment.status = PaymentStatus.COMPLETED
-    new_payment.completed_at = datetime.utcnow()
-    await db.commit()
-    await db.refresh(new_payment)
-
-    return new_payment
-
-
-@router.get("/history", response_model=List[payment_schema.PaymentResponse])
+@router.get("/history", response_model=List[payment_schema.Payment])
 async def get_payment_history(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends()
 ):
-    """
-    현재 사용자의 결제 내역을 조회합니다.
-    """
-    result = await db.execute(select(Payment).where(Payment.user_id == current_user.id))
-    payments = result.scalars().all()
-    return payments
+    return await payment_service.get_payment_history(db, current_user.id)
 
-
-@router.post("/refund/{payment_id}", response_model=payment_schema.PaymentResponse)
+@router.post("/refund/{payment_id}", response_model=payment_schema.Payment)
 async def refund_payment(
     payment_id: int,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends()
 ):
-    """
-    특정 결제에 대한 환불을 처리합니다.
-    - 결제 존재 확인
-    - 환불 조건 확인 (완료된 결제, 7일 이내)
-    - 환불 처리 및 상태 업데이트
-    """
-    result = await db.execute(
-        select(Payment).where(
-            Payment.id == payment_id, Payment.user_id == current_user.id
-        )
-    )
-    payment = result.scalar_one_or_none()
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-
-    if payment.status != PaymentStatus.COMPLETED:
-        raise HTTPException(
-            status_code=400, detail="Only completed payments can be refunded"
-        )
-
-    # Check refund conditions
-    if (datetime.utcnow() - payment.completed_at).days > 7:
-        raise HTTPException(status_code=400, detail="Refund period has expired")
-
-    # Here you would check the course progress, assuming it's less than 10%
-
-    # Process refund (integrate with payment gateway)
-    payment.status = PaymentStatus.REFUNDED
-    await db.commit()
-    await db.refresh(payment)
-
-    return payment
-
+    return await payment_service.refund_payment(db, current_user.id, payment_id)
 
 @router.post("/apply_coupon", response_model=float)
 async def apply_coupon(
@@ -240,26 +49,6 @@ async def apply_coupon(
     coupon_code: str,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    payment_service: PaymentService = Depends()
 ):
-    """
-    쿠폰을 적용하여 할인된 가격을 계산합니다.
-    - 과정 존재 확인
-    - 쿠폰 유효성 확인
-    - 할인된 가격 계산 및 반환
-    """
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    course = course_result.scalar_one_or_none()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
-    coupon_result = await db.execute(
-        select(Coupon).where(
-            Coupon.code == coupon_code, Coupon.valid_until > datetime.utcnow()
-        )
-    )
-    coupon = coupon_result.scalar_one_or_none()
-    if not coupon:
-        raise HTTPException(status_code=404, detail="Invalid or expired coupon")
-
-    discounted_price = course.price * (1 - coupon.discount_percent / 100)
-    return discounted_price
+    return await payment_service.apply_coupon_to_course(db, course_id, coupon_code)

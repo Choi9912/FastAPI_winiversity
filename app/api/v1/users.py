@@ -1,17 +1,12 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from datetime import datetime
-
-from app.models.courses import Certificate
 from ...schemas import user as user_schema
 from ...models.user import User, UserRole
-from ...core import security
 from ...db.session import get_async_db
 from ...api.dependencies import get_current_active_user
-from ...core.config import settings
-from sqlalchemy import select, update, delete
+from ...services.user_service import UserService
 from fastapi.responses import FileResponse
 
 router = APIRouter(
@@ -20,172 +15,55 @@ router = APIRouter(
     dependencies=[Depends(get_current_active_user)],
 )
 
-
 @router.get("/me", response_model=user_schema.User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    """
-    현재 로그인한 사용자의 정보를 조회합니다.
-    """
     return current_user
-
 
 @router.put("/me", response_model=user_schema.User)
 async def update_user_profile(
     user_update: user_schema.UserUpdate,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    user_service: UserService = Depends()
 ):
-    """
-    현재 로그인한 사용자의 프로필 정보를 업데이트합니다.
-    - 학생 권한만 가능
-    """
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(status_code=403, detail="권한이 없습니다.")
-    user_data = user_update.model_dump(exclude_unset=True)  
-
-    stmt = update(User).where(User.id == current_user.id).values(**user_data)
-    await db.execute(stmt)
-    await db.commit()
-    await db.refresh(current_user)
-    return current_user
-
+    return await user_service.update_user(db, current_user, user_update)
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_account(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    user_service: UserService = Depends()
 ):
-    """
-    현재 로그인한 사용자의 계정을 삭제합니다.
-    - 학생 권한만 가능
-    """
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(status_code=403, detail="권한이 없습니다.")
-    stmt = delete(User).where(User.id == current_user.id)
-    await db.execute(stmt)
-    await db.commit()
-    return
-
-
-@router.post("/", response_model=user_schema.User)
-async def create_user(
-    user: user_schema.UserCreate, db: AsyncSession = Depends(get_async_db)
-):
-    """
-    새로운 사용자를 생성합니다.
-    - 중복 사용자명 확인
-    - 비밀번호 해싱
-    """
-    result = await db.execute(select(User).where(User.username == user.username))
-    db_user = result.scalar_one_or_none()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-
-    hashed_password = security.get_password_hash(user.password)
-    db_user = User(
-        username=user.username,
-        hashed_password=hashed_password,
-        is_active=user.is_active,
-        role=user.role,
-        nickname=user.nickname,
-    )
-    db.add(db_user)
-    await db.commit()
-    await db.refresh(db_user)
-    return db_user
+    await user_service.delete_user(db, current_user)
 
 
 @router.get("/me/certificates", response_model=List[user_schema.Certificate])
 async def get_user_certificates(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    user_service: UserService = Depends()
 ):
-    """
-    현재 로그인한 사용자의 모든 수료증을 조회합니다.
-    """
-    result = await db.execute(
-        select(Certificate).where(Certificate.user_id == current_user.id)
-    )
-    certificates = result.scalars().all()
-    return certificates
-
+    return await user_service.get_user_certificates(db, current_user)
 
 @router.get("/me/certificates/{certificate_id}/download")
 async def download_certificate(
     certificate_id: int,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_active_user),
+    user_service: UserService = Depends()
 ):
-    """
-    특정 수료증을 다운로드합니다.
-    - 수료증 존재 확인
-    - PDF 파일 반환
-    """
-    result = await db.execute(
-        select(Certificate).where(
-            Certificate.id == certificate_id, Certificate.user_id == current_user.id
-        )
-    )
-    certificate = result.scalar_one_or_none()
-    if not certificate:
-        raise HTTPException(status_code=404, detail="Certificate not found")
-
-    # 생성된 PDF 파일의 경로를 구성
-    pdf_filename = f"certificate_{certificate_id}.pdf"
-    pdf_path = os.path.join(settings.CERTIFICATE_DIR, pdf_filename)
-
-    # 파일이 존재하는지 확인
-    if not os.path.exists(pdf_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Certificate file not found. It may still be generating.",
-        )
-
-    return FileResponse(pdf_path, filename=pdf_filename, media_type="application/pdf")
-
+    return await user_service.download_certificate(db, current_user, certificate_id)
 
 @router.get("/me/credits", response_model=int)
-async def get_user_credits(current_user: User = Depends(get_current_active_user)):
-    """
-    현재 로그인한 사용자의 크레딧을 조회합니다.
-    """
-    return current_user.credits
-
+async def get_user_credits(
+    current_user: User = Depends(get_current_active_user),
+    user_service: UserService = Depends()
+):
+    return await user_service.get_user_credits(current_user)
 
 @router.get("/me/learning_time", response_model=int)
-async def get_user_learning_time(current_user: User = Depends(get_current_active_user)):
-    """
-    현재 로그인한 사용자의 총 학습 시간을 조회합니다.
-    """
-    return current_user.total_learning_time
-
-
-@router.get("/me/course_valid_until", response_model=datetime)
-async def get_course_valid_until(current_user: User = Depends(get_current_active_user)):
-    """
-    현재 로그인한 사용자의 과정 유효 기간을 조회합니다.
-    """
-    if not current_user.course_valid_until:
-        raise HTTPException(status_code=404, detail="No active course subscription")
-    return current_user.course_valid_until
-
-
-@router.put("/me", response_model=user_schema.User)
-async def update_user_me(
-    user_update: user_schema.UserUpdate,
-    db: AsyncSession = Depends(get_async_db),
+async def get_user_learning_time(
     current_user: User = Depends(get_current_active_user),
+    user_service: UserService = Depends()
 ):
-    """
-    현재 로그인한 사용자의 정보를 업데이트합니다.
-    - 학생 권한만 가능
-    """
-    if current_user.role != UserRole.STUDENT:
-        raise HTTPException(status_code=403, detail="권한이 없습니다.")
-    user_data = user_update.dict(exclude_unset=True)
-
-    stmt = update(User).where(User.id == current_user.id).values(**user_data)
-    await db.execute(stmt)
-    await db.commit()
-    await db.refresh(current_user)
-    return current_user
+    return await user_service

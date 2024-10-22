@@ -5,8 +5,9 @@ from datetime import datetime
 class CertificateBase(BaseModel):
     issue_date: datetime
     certificate_number: str
-
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class CertificateCreate(CertificateBase):

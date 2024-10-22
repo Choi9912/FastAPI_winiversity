@@ -3,7 +3,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 from ..core import security, config
-from ..models.user import User
+from ..models.user import User, UserRole
 from ..db.session import get_async_db  # 이 줄을 수정했습니다
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..schemas import user_schema  # 이 줄을 수정했습니다
@@ -78,4 +78,10 @@ def get_current_admin_user(
     return user
 
 
-# Annotated[return_type, Depends(value)]
+async def admin_required(current_user: User = Depends(get_current_active_user)):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges"
+        )
+    return current_user
