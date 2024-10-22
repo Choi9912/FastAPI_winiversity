@@ -70,6 +70,7 @@ async def verify_token(token: str, db: AsyncSession) -> User:
         raise credentials_exception
     return user
 
+
 def decode_access_token(token: str):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
@@ -79,3 +80,21 @@ def decode_access_token(token: str):
         return payload
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
+
+
+def create_refresh_token(
+    subject: str, expires_delta: Optional[timedelta] = None
+) -> str:
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode = {"exp": expire, "sub": subject, "type": "refresh"}
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
+    return encoded_jwt
+
+
+def decode_token(token: str):
+    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
