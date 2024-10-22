@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 from ...schemas import user as user_schema
 from ...models.user import User, UserRole
 from ...core import config
-from ...core.security import verify_password, create_access_token, get_password_hash
+from ...core.security import verify_password, create_access_token, get_password_hash, create_refresh_token, decode_token
 from ...db.session import get_async_db
 from sqlalchemy import select
 
@@ -47,16 +47,16 @@ async def register(
     return new_user
 
 
-@router.post("/token", response_model=user_schema.Token)
+@router.post("/token", response_model=user_schema.TokenPair)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    사용자 로그인 및 액세스 토큰 발급
+    사용자 로그인 및 액세스/리프레시 토큰 발급
     - 사용자 인증
     - 마지막 로그인 시간 업데이트
-    - JWT 액세스 토큰 생성 및 반환
+    - JWT 액세스 토큰 및 리프레시 토큰 생성 및 반환
     """
     result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
@@ -70,12 +70,44 @@ async def login_for_access_token(
     user.last_login = datetime.utcnow()
     await db.commit()
 
-    access_token_expires = timedelta(
-        minutes=config.settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    access_token_expires = timedelta(minutes=config.settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=config.settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    
     access_token = create_access_token(
         subject=user.username, expires_delta=access_token_expires
     )
+    refresh_token = create_refresh_token(
+        subject=user.username, expires_delta=refresh_token_expires
+    )
+    
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+@router.post("/refresh", response_model=user_schema.Token)
+async def refresh_access_token(
+    refresh_token: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급합니다.
+    """
+    try:
+        payload = decode_token(refresh_token)
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+    except:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    access_token_expires = timedelta(minutes=config.settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        subject=user.username, expires_delta=access_token_expires
+    )
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 
