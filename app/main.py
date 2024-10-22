@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.db.base import Base
 from app.db.session import engine
-from app.api.v1 import auth, users, admin, courses, payment, mission, certificates, chat
+from app.api.v1 import auth, users, admin, courses, payment, mission, certificates
 from dotenv import load_dotenv
 import logging
 from app.core.config import settings
@@ -56,7 +56,6 @@ app.include_router(courses.router, prefix="")
 app.include_router(payment.router, prefix="")
 app.include_router(mission.router, prefix="")
 app.include_router(certificates.router, prefix="")
-app.include_router(chat.router, prefix="")
 
 
 
