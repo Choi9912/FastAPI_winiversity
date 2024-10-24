@@ -11,7 +11,7 @@ from ...services.admin_service import AdminService
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Depends(admin_required)],  # 모든 admin 라우트에 admin_required 의존성 적용
+    dependencies=[Depends(admin_required)],
 )
 
 @router.get("/users", response_model=List[user_schema.User])
