@@ -8,8 +8,8 @@ load_dotenv()
 class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 15분으로 단축
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 1  # 1일로 단축
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 1
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", "postgresql+asyncpg://postgres:1234@localhost/dbname"
     )

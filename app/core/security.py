@@ -10,6 +10,7 @@ import redis
 from ..db.session import get_async_db
 from ..models.user import User
 from sqlalchemy import select
+import logging
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -17,6 +18,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 # Redis 클라이언트 설정
 redis_client = redis.Redis(host="localhost", port=6379, db=0)
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -107,4 +110,31 @@ def decode_token(token: str):
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_async_db),
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        logger.debug(f"Received token: {token}")
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        logger.debug(f"Decoded payload: {payload}")
+        username: Optional[str] = payload.get("sub")
+        jti: Optional[str] = payload.get("jti")
+        if username is None:
+            logger.error("Username not found in token")
+            raise credentials_exception
+        if jti is not None and is_token_blacklisted(jti):
+            logger.error("Token is blacklisted")
+            raise credentials_exception
+        token_data = user_schema.TokenData(username=username)
+    except JWTError as e:
+        logger.error(f"JWT Error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return token_data

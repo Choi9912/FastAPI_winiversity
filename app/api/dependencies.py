@@ -4,19 +4,22 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 from ..core import security, config
 from ..models.user import User, UserRole
-from ..db.session import get_async_db  # 이 줄을 수정했습니다
+from ..db.session import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..schemas import user_schema  # 이 줄을 수정했습니다
+from ..schemas import user_schema
 from ..core.security import is_token_blacklisted
 from sqlalchemy.future import select
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # get_current_user 함수 업데이트
 async def get_current_user(
     token: str = Depends(security.oauth2_scheme),
     db: AsyncSession = Depends(get_async_db),
 ):
-    print(f"Received token: {token}")  # 디버깅 로그
+    logger.debug(f"Received token: {token}")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="유효하지 않은 인증 정보입니다.",
@@ -26,24 +29,30 @@ async def get_current_user(
         payload = jwt.decode(
             token, config.settings.SECRET_KEY, algorithms=[config.settings.ALGORITHM]
         )
+        logger.debug(f"Decoded payload: {payload}")
         username: Optional[str] = payload.get("sub")
         jti: Optional[str] = payload.get("jti")
-        if username is None or jti is None:
+        if username is None:
+            logger.error("Username not found in token")
             raise credentials_exception
-        if is_token_blacklisted(jti):
+        if jti is not None and is_token_blacklisted(jti):
+            logger.error("Token is blacklisted")
             raise credentials_exception
         token_data = user_schema.TokenData(username=username)
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT Error: {str(e)}")
         raise credentials_exception
 
-    # 비동기 쿼리 실행
+    logger.debug(f"Looking up user: {username}")
     async with db as session:
         query = select(User).filter(User.username == token_data.username)
         result = await session.execute(query)
         user = result.scalar_one_or_none()
 
     if user is None:
+        logger.error(f"User not found: {username}")
         raise credentials_exception
+    logger.debug(f"User authenticated: {username}")
     return user
 
 
